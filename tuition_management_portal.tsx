@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import StudyMaterialsManager, { FileAttachment } from './src/components/StudyMaterialsManager';
+import MentorShowcase from './src/components/MentorShowcase';
 import { 
   Users, 
   BookOpen, 
@@ -76,6 +77,7 @@ type TabType =
   // Shared Content Tabs
   | 'notes'
   | 'tests'
+  | 'mentors'
   // Student-Only Tabs
   | 'my-attendance'
   | 'my-fees'
@@ -88,7 +90,8 @@ const TEACHER_ALLOWED_TABS: TabType[] = [
   'fees', 
   'notes', 
   'tests', 
-  'analytics'
+  'analytics',
+  'mentors'
 ];
 
 const STUDENT_ALLOWED_TABS: TabType[] = [
@@ -97,7 +100,8 @@ const STUDENT_ALLOWED_TABS: TabType[] = [
   'my-fees', 
   'notes', 
   'tests', 
-  'my-progress'
+  'my-progress',
+  'mentors'
 ];
 
 const isTabAuthorized = (role: RoleType, tab: TabType): boolean => {
@@ -2409,6 +2413,22 @@ export default function App({
                   </span>
                 </button>
               )}
+
+              {/* SHARED: MENTOR DIRECTORY */}
+              <button
+                onClick={() => setActiveTab('mentors')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'mentors'
+                    ? (currentRole === 'teacher' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-emerald-600 text-white shadow-sm')
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <GraduationCap className="w-4 h-4" />
+                  <span>Mentor Directory</span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+              </button>
             </nav>
           </div>
 
@@ -2912,6 +2932,30 @@ export default function App({
                     </button>
                   )}
                 </div>
+              </div>
+
+              {/* MENTOR SHOWCASE HIGHLIGHT BANNER */}
+              <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 rounded-2xl p-6 text-white shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 px-2.5 py-0.5 rounded-full border border-indigo-400/30">
+                      Faculty & Mentors
+                    </span>
+                    <span className="text-xs text-indigo-200">Verified Academic Experts</span>
+                  </div>
+                  <h3 className="text-lg font-bold">Explore Our Mentor Directory</h3>
+                  <p className="text-xs text-indigo-100/80 max-w-xl">
+                    Discover subject matter specialists, review qualifications, track records, and student ratings. Request batch callbacks or send secure in-app inquiries with zero exposure of personal contact details.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('mentors')}
+                  className="px-4 py-2 bg-white text-indigo-900 hover:bg-indigo-50 text-xs font-bold rounded-xl shadow-md transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
+                >
+                  <GraduationCap className="w-4 h-4 text-indigo-600" />
+                  <span>View All Mentors</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           )}
@@ -3941,6 +3985,21 @@ export default function App({
                 </table>
               </div>
             </div>
+          )}
+
+          {/* MENTOR DIRECTORY TAB (SHARED — both roles) */}
+          {activeTab === 'mentors' && isTabAuthorized(currentRole, 'mentors') && (
+            <MentorShowcase
+              teachers={teachers}
+              onRequestCallback={(req) => {
+                showToast(`Callback request sent to mentor successfully!`);
+                console.info('[MentorShowcase] Callback request:', req);
+              }}
+              onSendMessage={(msg) => {
+                showToast(`Message delivered to mentor inbox.`);
+                console.info('[MentorShowcase] In-app message:', msg);
+              }}
+            />
           )}
         </main>
       </div>
@@ -5086,6 +5145,16 @@ export default function App({
                 Share this link with parents to let them review credentials and join batches.
               </span>
               <div className="flex items-center space-x-2 w-full sm:w-auto">
+                <button
+                  onClick={() => {
+                    setShowLandingPageModal(false);
+                    setActiveTab('mentors');
+                  }}
+                  className="flex-1 sm:flex-none px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+                >
+                  <GraduationCap className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>View Mentor Showcase</span>
+                </button>
                 <button
                   onClick={() => {
                     const url = `${window.location.origin}/?tuition=${activeTeacher.id}`;
