@@ -211,6 +211,12 @@ export interface ScoreRecord {
 
 // --- INITIAL MOCK DATA ---
 
+// Strictly restricted demo accounts visible in the public top header selector
+export const DEMO_PUBLIC_TEACHERS: { id: string; name: string; subject: string }[] = [
+  { id: 't1', name: 'Prof. Rajesh Sharma', subject: 'Mathematics & Physics' },
+  { id: 't2', name: 'Ms. Anita Verma', subject: 'Chemistry & Biology' }
+];
+
 const DEFAULT_TEACHERS: Teacher[] = [
   { 
     id: 't1', 
@@ -1907,27 +1913,17 @@ export default function App({
             {/* RBAC CONTEXT CONTROLS */}
             {currentRole === 'teacher' ? (
               <div className="flex items-center space-x-2">
-                {/* Teacher Selector: Only shown if not locked by currentUser */}
+                {/* Tuition Center Selection Dropdown: Strictly restricted to the 2 public demo accounts */}
                 {(!currentUser || currentUser.role !== 'TEACHER') && (
                   <div className="flex items-center bg-slate-800 rounded-lg px-2 sm:px-3 py-1.5 border border-slate-700">
                     <UserCheck className="w-4 h-4 text-indigo-400 mr-2 hidden sm:block" />
-                    <span className="text-xs text-slate-400 mr-2 hidden md:inline">Teacher:</span>
+                    <span className="text-xs text-slate-400 mr-2 hidden md:inline">Tuition Center:</span>
                     <select 
-                      value={currentTeacherId} 
+                      value={currentTeacherId && (currentTeacherId === 't1' || currentTeacherId === 't2') ? currentTeacherId : 't1'} 
                       onChange={(e) => handleSwitchTeacher(e.target.value)}
                       className="bg-transparent text-xs sm:text-sm font-medium focus:outline-none text-indigo-200 cursor-pointer"
                     >
-                      {!teachers.some(t => t.id === currentTeacherId) && currentTeacherId && (
-                        <option value={currentTeacherId} className="bg-slate-800 text-white">
-                          {activeTeacher.name} ({activeTeacher.subject})
-                        </option>
-                      )}
-                      {!currentTeacherId && (
-                        <option value="" disabled className="bg-slate-800 text-slate-400">
-                          Select Tuition Center...
-                        </option>
-                      )}
-                      {teachers.map(t => (
+                      {DEMO_PUBLIC_TEACHERS.map(t => (
                         <option key={t.id} value={t.id} className="bg-slate-800 text-white">
                           {t.name} ({t.subject})
                         </option>
