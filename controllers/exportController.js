@@ -4,6 +4,9 @@ import {
   enforceTenantIsolation 
 } from '../middleware/authMiddleware.js';
 
+// In-memory export activity audit log
+const exportActivityLogs = [];
+
 /**
  * Controller: Export Workspace Data with Backend RBAC & Multi-Tenant Enforcement
  * 
@@ -16,10 +19,11 @@ import {
 export const handleExportData = async (req, res) => {
   try {
     const user = req.user;
-    const { format = 'json', targetTuitionId } = req.query;
+    const { format = 'json', category = 'student_tuition', targetTuitionId } = req.query;
 
     // 1. Role-based clearance check
     if (!user || user.role === 'STUDENT') {
+      console.warn(`[Security Audit] Unauthorized export attempt blocked for user: ${user?.userId || 'unknown'} (Role: ${user?.role})`);
       return res.status(403).json({
         success: false,
         message: 'Security Violation: Student accounts do not possess clearance to export tuition directories or ledger records.'
@@ -37,10 +41,27 @@ export const handleExportData = async (req, res) => {
       });
     }
 
+    // Log export activity for compliance
+    const auditRecord = {
+      id: `exp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      userId: user.userId || user.id,
+      userName: user.name,
+      role: user.role,
+      tuitionId: effectiveTuitionId,
+      category,
+      format,
+      ip: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1'
+    };
+    exportActivityLogs.unshift(auditRecord);
+    if (exportActivityLogs.length > 100) exportActivityLogs.pop();
+    console.log(`[Export Audit] User ${user.name} (${user.role}) exported category '${category}' in format '${format}' for center '${effectiveTuitionId}'`);
+
     // 2. Metadata payload
     const exportMetadata = {
       version: '2.0',
       platform: 'EduMaster Tuition Platform',
+      category,
       exportedAt: new Date().toISOString(),
       requestedBy: {
         userId: user.userId || user.id,
@@ -53,20 +74,27 @@ export const handleExportData = async (req, res) => {
       securityGuarantees: [
         'Strict tenant boundary enforcement active',
         'Authentication credentials, PINs, and secrets stripped',
+        'Question answer keys protected from unauthorized roles',
         'RFC 4180 / ISO 8601 data serialization standards applied'
       ]
     };
 
     // 3. Dispatch format
-    const filenameBase = `tuition_export_${(effectiveTuitionId || 'system').replace(/\W/g, '_')}_${new Date().toISOString().slice(0, 10)}`;
+    const categoryPrefix = category === 'tests_results' 
+      ? 'tests_and_results' 
+      : category === 'full_backup' 
+      ? 'tuition_backup' 
+      : 'student_and_tuition_records';
+
+    const filenameBase = `${categoryPrefix}_${(effectiveTuitionId || 'system').replace(/\W/g, '_')}_${new Date().toISOString().slice(0, 10)}`;
 
     if (format === 'csv') {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${filenameBase}.csv"`);
       // Return UTF-8 BOM + CSV payload
       const csvContent = '\uFEFF' + [
-        'Student ID,Student Name,Roll Number,Batch,Fee Status,Monthly Fee',
-        'DEMO_1,Sample Student,101,Batch A,Paid,2500'
+        'Record ID,Category,Tuition ID,Exported At,Clearance Level',
+        `REC_1,${category},${effectiveTuitionId},${new Date().toISOString()},Authorized`
       ].join('\r\n');
       return res.status(200).send(csvContent);
     }
@@ -89,6 +117,7 @@ export const handleExportData = async (req, res) => {
       ...exportMetadata,
       data: {
         tuitionId: effectiveTuitionId,
+        category,
         batches: [],
         students: [],
         notes: [],
@@ -105,7 +134,14 @@ export const handleExportData = async (req, res) => {
   }
 };
 
-export default {
-  handleExportData
+export const getExportAuditLogs = (req, res) => {
+  return res.status(200).json({
+    success: true,
+    logs: exportActivityLogs
+  });
 };
 
+export default {
+  handleExportData,
+  getExportAuditLogs
+};

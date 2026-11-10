@@ -1241,6 +1241,13 @@ export default function App({
     );
   }, [tests, currentRole, currentTeacherId, activeStudent]);
 
+  // Strictly isolate scores for export to current tuition center
+  const centerScores = useMemo(() => {
+    const testIds = new Set(visibleTests.map(t => t.id));
+    const studentIds = new Set(teacherStudents.map(s => s.id));
+    return scores.filter(sc => testIds.has(sc.testId) || studentIds.has(sc.studentId));
+  }, [scores, visibleTests, teacherStudents]);
+
   // Export Dataset (Strictly isolated to authorized teacher/center scope)
   const exportDataset: ExportDataset = useMemo(() => ({
     teacher: activeTeacher,
@@ -1249,9 +1256,9 @@ export default function App({
     notes: visibleNotes,
     tests: visibleTests,
     attendanceRecords,
-    scores,
+    scores: centerScores,
     pendingRequests: teacherPendingRequests
-  }), [activeTeacher, teacherBatchesList, teacherStudents, visibleNotes, visibleTests, attendanceRecords, scores, teacherPendingRequests]);
+  }), [activeTeacher, teacherBatchesList, teacherStudents, visibleNotes, visibleTests, attendanceRecords, centerScores, teacherPendingRequests]);
 
   // Statistics
   const totalStudentsCount = teacherStudents.length;

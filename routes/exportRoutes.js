@@ -1,5 +1,5 @@
 import express from 'express';
-import { handleExportData } from '../controllers/exportController.js';
+import { handleExportData, getExportAuditLogs } from '../controllers/exportController.js';
 import { 
   authenticateToken, 
   authorizeRoles, 
@@ -20,6 +20,18 @@ router.get(
   authorizeRoles('TEACHER', 'TUITION_OWNER', 'INSTRUCTOR', 'SUPER_ADMIN'),
   enforceTenantIsolation,
   handleExportData
+);
+
+/**
+ * @route   GET /api/export/audit-logs
+ * @desc    Retrieve export activity logs.
+ * @access  SUPER_ADMIN and TUITION_OWNER
+ */
+router.get(
+  '/audit-logs',
+  authenticateToken,
+  authorizeRoles('SUPER_ADMIN', 'TUITION_OWNER'),
+  getExportAuditLogs
 );
 
 export default router;
