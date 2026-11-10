@@ -1,79 +1,11 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { db } from '../models/db.js';
+export { db };
 
 // Secret for signing JWTs (in production, read from process.env.JWT_SECRET)
 const JWT_SECRET = process.env.JWT_SECRET || 'edumaster_secure_jwt_secret_key_2026';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-
-/**
- * IN-MEMORY REPOSITORY (Connects to PostgreSQL/Prisma or MongoDB in production)
- * Structured with strict multi-tenant tenancy guarantees.
- */
-export const db = {
-  tuitions: [
-    {
-      id: 't_inst_1',
-      name: 'Sharma Mathematics & Physics Academy',
-      code: 'SHARMA-101',
-      phone: '+91 98765 43210',
-      ownerId: 'u_teacher_1',
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 't_inst_2',
-      name: 'Verma Science & Biology Hub',
-      code: 'VERMA-202',
-      phone: '+91 98123 45678',
-      ownerId: 'u_teacher_2',
-      createdAt: new Date().toISOString()
-    }
-  ],
-  users: [
-    {
-      id: 'u_teacher_1',
-      name: 'Prof. Rajesh Sharma',
-      email: 'sharma.tuitions@gmail.com',
-      phone: '9876543210',
-      // Bcrypt hash for 'Sharma@123'
-      passwordHash: '$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6',
-      role: 'TEACHER',
-      tuitionId: 't_inst_1',
-      isActive: true,
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 'u_student_1',
-      name: 'Aarav Patel',
-      email: 'aarav.patel@gmail.com',
-      phone: '9111122222',
-      username: 'aarav101',
-      // Bcrypt hash for 'Student@123'
-      passwordHash: '$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6',
-      role: 'STUDENT',
-      // Multi-tenant mapping: student is enrolled in 2 distinct tuition institutes!
-      tenants: [
-        { tuitionId: 't_inst_1', tuitionName: 'Sharma Mathematics & Physics Academy', batch: 'Class 10 - Batch A', rollNo: '101' },
-        { tuitionId: 't_inst_2', tuitionName: 'Verma Science & Biology Hub', batch: 'Class 10 - Foundation Science', rollNo: 'S-205' }
-      ],
-      isActive: true,
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 'admin_root',
-      name: 'Platform Super-Admin',
-      email: 'admin@edumaster.io',
-      phone: '9999999999',
-      username: 'admin',
-      passwordHash: '$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6',
-      role: 'SUPER_ADMIN',
-      tuitionId: 'system_root',
-      isActive: true,
-      createdAt: new Date().toISOString()
-    }
-  ],
-  otps: new Map(),
-  resetTokens: new Map()
-};
 
 /**
  * Helper: Generate JWT Token with Multi-Tenant Claims
@@ -307,6 +239,7 @@ export const login = async (req, res) => {
           role: user.role,
           tuitionId: activeTuitionId,
           tuitionName: tuitionRecord ? tuitionRecord.name : 'EduMaster Tuition Hub',
+          upiId: user.upiId || tuitionRecord?.upiId || '',
           tenants: user.tenants || []
         }
       }
@@ -426,6 +359,7 @@ export const verifyOtp = async (req, res) => {
           role: user.role,
           tuitionId: activeTuitionId,
           tuitionName: tuitionRecord ? tuitionRecord.name : 'EduMaster Tuition Hub',
+          upiId: user.upiId || tuitionRecord?.upiId || '',
           tenants: user.tenants || []
         }
       }

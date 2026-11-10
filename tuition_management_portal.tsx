@@ -48,7 +48,10 @@ import {
   ArrowRight,
   ShieldAlert,
   Lock,
-  Upload
+  Upload,
+  CreditCard,
+  Edit3,
+  Save
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -496,7 +499,7 @@ export default function App({
           subject: currentUser.tuitionName || 'Tuition Center',
           email: currentUser.email || '',
           phone: currentUser.phone || '',
-          upiId: currentUser.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : 'teacher@upi',
+          upiId: currentUser.upiId || '',
           location: currentUser.tuitionName || '',
           bio: `Dedicated tuition center led by ${currentUser.name || 'Instructor'}.`,
           resultsHeadline: 'New Academic Batches Now Open for Enrollment!'
@@ -722,7 +725,7 @@ export default function App({
               email: currentUser.email || '',
               phone: currentUser.phone || '',
               pin: currentUser.pin || '1234',
-              upiId: currentUser.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : 'teacher@upi',
+              upiId: currentUser.upiId || '',
               location: currentUser.tuitionName || '',
               bio: `Dedicated tuition center led by ${currentUser.name || 'Instructor'}.`,
               resultsHeadline: 'New Academic Batches Now Open for Enrollment!'
@@ -1035,6 +1038,14 @@ export default function App({
   const [showLandingPageModal, setShowLandingPageModal] = useState(false);
   const [landingPageTab, setLandingPageTab] = useState<'MICROSITE' | 'DEMO_CENTERS'>('MICROSITE');
 
+  // TEACHER UPI PAYMENT SETTINGS STATE
+  const [isEditingUpi, setIsEditingUpi] = useState(false);
+  const [teacherUpiInput, setTeacherUpiInput] = useState('');
+  const [upiSaveError, setUpiSaveError] = useState('');
+  const [upiSaveSuccess, setUpiSaveSuccess] = useState('');
+  const [isSavingUpi, setIsSavingUpi] = useState(false);
+  const [showTeacherQrPreview, setShowTeacherQrPreview] = useState(false);
+
   // Student join code input state
   const [inputJoinCode, setInputJoinCode] = useState('');
   const [joinStudentName, setJoinStudentName] = useState('');
@@ -1068,6 +1079,52 @@ export default function App({
     showToast(`Copied Batch Code "${code}" to clipboard!`);
   };
 
+  // Teacher Payment Settings Handler
+  const handleSaveTeacherUpi = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = teacherUpiInput.trim().toLowerCase();
+
+    // Strict UPI ID format validation (username@bankhandle)
+    const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+    if (!upiRegex.test(trimmed)) {
+      setUpiSaveError('Invalid UPI ID format. Please enter a valid Virtual Payment Address (e.g. sharma@oksbi or 9876543210@paytm).');
+      setUpiSaveSuccess('');
+      return;
+    }
+
+    setIsSavingUpi(true);
+    setUpiSaveError('');
+
+    // Persist to teachers state
+    const targetTeacherId = activeTeacher.id;
+    const updatedTeachers = teachers.map(t => {
+      if (t.id === targetTeacherId) {
+        return { ...t, upiId: trimmed };
+      }
+      return t;
+    });
+
+    setTeachers(updatedTeachers);
+
+    try {
+      localStorage.setItem('tm_teachers', JSON.stringify(updatedTeachers));
+
+      // If current user is logged-in teacher, update session data
+      if (currentUser && (currentUser.role === 'TEACHER' || currentUser.role === 'teacher')) {
+        const updatedUser = { ...currentUser, upiId: trimmed };
+        localStorage.setItem('tm_auth_user', JSON.stringify(updatedUser));
+        if (onUserUpdate) onUserUpdate(updatedUser);
+      }
+    } catch (err) {
+      console.error('Failed to save UPI ID to localStorage:', err);
+    }
+
+    setIsSavingUpi(false);
+    setIsEditingUpi(false);
+    setUpiSaveSuccess(`UPI ID saved successfully as "${trimmed}". Students will now pay directly to this UPI address.`);
+    showToast(`Payment settings saved: ${trimmed}`);
+  };
+
   // --- ENTITY RESOLUTION & STRICT RBAC DATA ISOLATION ---
   const activeTeacher = useMemo<Teacher>(() => {
     if (currentTeacherId) {
@@ -1075,14 +1132,19 @@ export default function App({
       if (found) return found;
     }
     if (currentUser && (currentUser.role === 'TEACHER' || currentUser.role === 'teacher')) {
+      const tid = currentUser.tuitionId || currentUser.id || currentTeacherId;
+      if (tid) {
+        const match = teachers.find(t => t.id === tid);
+        if (match) return match;
+      }
       return {
-        id: currentUser.tuitionId || currentUser.id || currentTeacherId || 'unassigned',
+        id: tid || 'unassigned',
         name: currentUser.name || 'Instructor',
         subject: currentUser.tuitionName || 'Tuition Center',
         email: currentUser.email || '',
         phone: currentUser.phone || '',
         pin: currentUser.pin || '1234',
-        upiId: currentUser.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : 'teacher@upi',
+        upiId: currentUser.upiId || '',
         location: currentUser.tuitionName || '',
         status: (currentUser.status as 'Active' | 'Suspended') || 'Active',
         bio: `Dedicated tuition center led by ${currentUser.name || 'Instructor'}.`,
@@ -1485,7 +1547,7 @@ export default function App({
     const email = (formData.get('email') as string).trim();
     const phone = (formData.get('phone') as string).trim();
     const pin = ((formData.get('pin') as string) || '').trim() || '1234';
-    const upiId = ((formData.get('upiId') as string) || '').trim() || `${phone.replace(/\D/g, '') || 'teacher'}@upi`;
+    const upiId = ((formData.get('upiId') as string) || '').trim();
     const location = ((formData.get('location') as string) || '').trim() || name;
     const bio = ((formData.get('bio') as string) || '').trim() || `Tuition center managed by ${name}.`;
     const resultsHeadline = ((formData.get('resultsHeadline') as string) || '').trim() || 'New Academic Batches Now Open for Enrollment!';
@@ -2806,6 +2868,227 @@ export default function App({
                 </div>
               )}
 
+              {/* TEACHER PAYMENT SETTINGS SECTION */}
+              {currentRole === 'teacher' && (
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
+                        <CreditCard className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h3 className="font-bold text-slate-900 text-base">Payment Settings</h3>
+                          {activeTeacher.upiId ? (
+                            <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Active UPI Receiver
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                              Not Configured
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Set your official UPI Virtual Payment Address (VPA) to receive direct fee payments via dynamic QR code
+                        </p>
+                      </div>
+                    </div>
+
+                    {!isEditingUpi && (
+                      <div className="flex items-center gap-2">
+                        {activeTeacher.upiId && (
+                          <button
+                            type="button"
+                            onClick={() => setShowTeacherQrPreview(!showTeacherQrPreview)}
+                            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer"
+                          >
+                            <QrCode className="w-3.5 h-3.5 text-slate-600" />
+                            <span>{showTeacherQrPreview ? 'Hide QR Preview' : 'Preview Fee QR'}</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTeacherUpiInput(activeTeacher.upiId || '');
+                            setUpiSaveError('');
+                            setUpiSaveSuccess('');
+                            setIsEditingUpi(true);
+                          }}
+                          className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>{activeTeacher.upiId ? 'Edit UPI ID' : 'Configure UPI ID'}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* FEEDBACK BANNERS */}
+                  {upiSaveSuccess && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center justify-between animate-in fade-in">
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{upiSaveSuccess}</span>
+                      </div>
+                      <button onClick={() => setUpiSaveSuccess('')} className="text-emerald-700 hover:text-emerald-900 text-xs cursor-pointer">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {upiSaveError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center justify-between animate-in fade-in">
+                      <div className="flex items-center space-x-2">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>{upiSaveError}</span>
+                      </div>
+                      <button onClick={() => setUpiSaveError('')} className="text-rose-700 hover:text-rose-900 text-xs cursor-pointer">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* EDIT FORM VS DISPLAY VIEW */}
+                  {isEditingUpi ? (
+                    <form onSubmit={handleSaveTeacherUpi} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Teacher UPI ID / Virtual Payment Address (VPA) <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required
+                            autoFocus
+                            value={teacherUpiInput}
+                            onChange={(e) => {
+                              setTeacherUpiInput(e.target.value);
+                              setUpiSaveError('');
+                            }}
+                            placeholder="e.g. sharma@oksbi or 9876543210@paytm"
+                            className="w-full pl-3.5 pr-20 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                          />
+                          <span className="absolute right-3 top-2.5 text-[10px] text-slate-400 font-mono">
+                            VPA
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1.5 flex flex-wrap items-center gap-1">
+                          <span>Supported handles:</span>
+                          <span className="font-mono text-slate-700 bg-slate-200 px-1 rounded">@oksbi</span>
+                          <span className="font-mono text-slate-700 bg-slate-200 px-1 rounded">@okhdfcbank</span>
+                          <span className="font-mono text-slate-700 bg-slate-200 px-1 rounded">@okaxis</span>
+                          <span className="font-mono text-slate-700 bg-slate-200 px-1 rounded">@paytm</span>
+                          <span className="font-mono text-slate-700 bg-slate-200 px-1 rounded">@upi</span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingUpi(false);
+                            setUpiSaveError('');
+                          }}
+                          className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isSavingUpi}
+                          className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-emerald-600/20 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>{isSavingUpi ? 'Saving...' : 'Save Changes'}</span>
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                      <div className="md:col-span-2 p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                            Registered Payment Address
+                          </span>
+                          {activeTeacher.upiId ? (
+                            <div className="flex items-center space-x-2 mt-1">
+                              <span className="text-base font-mono font-bold text-slate-900 bg-white px-3 py-1 rounded-xl border border-slate-200 shadow-sm">
+                                {activeTeacher.upiId}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard?.writeText(activeTeacher.upiId!);
+                                  showToast(`Copied UPI ID "${activeTeacher.upiId}" to clipboard!`);
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 transition-all cursor-pointer"
+                                title="Copy UPI ID"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="mt-1">
+                              <span className="text-xs text-amber-700 font-semibold italic">
+                                Teacher has not configured UPI payments yet.
+                              </span>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Click "Configure UPI ID" above to set up direct digital fee collection.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="text-left sm:text-right">
+                          <span className="text-[10px] text-slate-400 block font-bold uppercase">
+                            Settlement Mode
+                          </span>
+                          <span className="text-xs font-bold text-emerald-700 flex items-center sm:justify-end gap-1 mt-0.5">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            Direct Bank Transfer
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl text-xs space-y-1">
+                        <span className="font-bold text-indigo-900 flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+                          Zero Platform Fee
+                        </span>
+                        <p className="text-[11px] text-indigo-800/80 leading-relaxed">
+                          Student fees settle instantly into your linked bank account with 0% gateway commission.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* LIVE QR PREVIEW TOGGLE */}
+                  {showTeacherQrPreview && activeTeacher.upiId && (
+                    <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in">
+                      <div className="space-y-1 text-center sm:text-left">
+                        <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold tracking-wider">
+                          Live QR Code Preview
+                        </span>
+                        <h4 className="text-sm font-bold text-white">Sample ₹2,500 Dynamic Payment QR</h4>
+                        <p className="text-xs text-slate-400 max-w-md">
+                          This is how your students see and scan your fee QR code on their phones. Scanning resolves to <strong className="text-emerald-300 font-mono">{activeTeacher.upiId}</strong>.
+                        </p>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-xl border border-slate-700 shrink-0">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`upi://pay?pa=${activeTeacher.upiId}&pn=${encodeURIComponent(activeTeacher.name)}&am=2500&cu=INR`)}`}
+                          alt="Teacher QR Preview"
+                          className="w-28 h-28 object-contain"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* DASHBOARD PREVIEW PANELS */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
@@ -3463,7 +3746,11 @@ export default function App({
                     Instructor: <strong>{activeTeacher.name}</strong> • Phone: {activeTeacher.phone}
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    UPI ID: <span className="font-mono text-emerald-300">{activeTeacher.upiId || 'sharmaclasses@upi'}</span>
+                    UPI ID: {activeTeacher.upiId ? (
+                      <span className="font-mono text-emerald-300 font-bold">{activeTeacher.upiId}</span>
+                    ) : (
+                      <span className="text-amber-300 italic text-[11px]">Teacher has not configured UPI payments yet</span>
+                    )}
                   </p>
                 </div>
 
@@ -4985,98 +5272,137 @@ export default function App({
       )}
 
       {/* UPI QR PAYMENT MODAL */}
-      {showQRModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4 border border-slate-200 text-center animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b pb-3 text-left">
-              <div className="flex items-center space-x-2">
-                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                  <QrCode className="w-5 h-5" />
+      {showQRModal && (() => {
+        // Strictly resolve teacher by student's teacherId to prevent cross-teacher payment mismatch
+        const studentTeacher = teachers.find(t => t.id === showQRModal.teacherId) || activeTeacher;
+        const teacherUpiId = (studentTeacher?.upiId || '').trim();
+        const hasConfiguredUpi = Boolean(teacherUpiId);
+        const upiPaymentUri = hasConfiguredUpi
+          ? `upi://pay?pa=${teacherUpiId}&pn=${encodeURIComponent(studentTeacher.name)}&am=${showQRModal.feeAmount}&cu=INR&tn=${encodeURIComponent(`Tuition Fee - ${showQRModal.name}`)}`
+          : '';
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4 border border-slate-200 text-center animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between border-b pb-3 text-left">
+                <div className="flex items-center space-x-2">
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <QrCode className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">UPI Instant Payment</h3>
+                    <p className="text-[11px] text-slate-500">Scan to pay tuition fee</p>
+                  </div>
                 </div>
+                <button onClick={() => setShowQRModal(null)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">UPI Instant Payment</h3>
-                  <p className="text-[11px] text-slate-500">Scan to pay tuition fee</p>
+                  <p className="text-xs text-slate-400 font-semibold uppercase">{studentTeacher.name}</p>
+                  <p className="text-2xl font-black text-slate-900 mt-0.5">₹{showQRModal.feeAmount}</p>
+                  <p className="text-xs text-slate-500">Student: <strong>{showQRModal.name}</strong> • {showQRModal.batch}</p>
                 </div>
-              </div>
-              <button onClick={() => setShowQRModal(null)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-              <div>
-                <p className="text-xs text-slate-400 font-semibold uppercase">{activeTeacher.name}</p>
-                <p className="text-2xl font-black text-slate-900 mt-0.5">₹{showQRModal.feeAmount}</p>
-                <p className="text-xs text-slate-500">Student: <strong>{showQRModal.name}</strong> • {showQRModal.batch}</p>
+                {hasConfiguredUpi ? (
+                  <>
+                    {/* DYNAMIC QR CODE DISPLAY */}
+                    <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-inner inline-block">
+                      <div className="w-44 h-44 mx-auto rounded-xl flex flex-col items-center justify-center relative overflow-hidden bg-white">
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=176x176&data=${encodeURIComponent(upiPaymentUri)}`}
+                          alt={`UPI QR for ${teacherUpiId}`}
+                          className="w-44 h-44 object-contain rounded-lg"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                            const fallback = document.getElementById('qr-modal-fallback');
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                        <div id="qr-modal-fallback" style={{ display: 'none' }} className="w-44 h-44 bg-slate-950 p-2 rounded-lg flex-col items-center justify-center relative overflow-hidden">
+                          <div className="grid grid-cols-6 gap-1 w-full h-full p-1 opacity-90">
+                            {Array.from({ length: 36 }).map((_, i) => (
+                              <div key={i} className={`rounded-sm ${(i % 7 === 0 || i % 5 === 0 || i < 7 || i > 28) ? 'bg-white' : (i % 2 === 0 ? 'bg-indigo-400' : 'bg-slate-900')}`}></div>
+                            ))}
+                          </div>
+                          <div className="absolute inset-0 m-auto w-10 h-10 bg-white rounded-lg shadow-md flex items-center justify-center border border-slate-200">
+                            <span className="text-[10px] font-black text-indigo-600">UPI</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* UPI ID PILL */}
+                    <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                      <span className="text-slate-500 font-medium">UPI ID:</span>
+                      <span className="font-mono font-bold text-indigo-700 truncate max-w-[170px]" title={teacherUpiId}>
+                        {teacherUpiId}
+                      </span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard?.writeText(teacherUpiId);
+                          showToast(`Copied UPI ID "${teacherUpiId}" to clipboard!`);
+                        }}
+                        className="text-slate-400 hover:text-indigo-600 p-1 cursor-pointer shrink-0"
+                        title="Copy UPI ID"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  /* UNCONFIGURED UPI WARNING MESSAGE */
+                  <div className="py-5 px-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-center space-y-2">
+                    <div className="w-9 h-9 bg-amber-500/20 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+                      <AlertCircle className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-amber-800 text-xs sm:text-sm">
+                      Teacher has not configured UPI payments yet
+                    </h4>
+                    <p className="text-[11px] text-amber-700 leading-relaxed">
+                      Your instructor ({studentTeacher.name}) has not set up their UPI payment ID. Please contact your instructor to configure digital payments, or settle your fee offline.
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* GENERATED QR CODE DISPLAY */}
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-inner inline-block">
-                <div className="w-44 h-44 mx-auto bg-slate-950 p-2 rounded-lg flex flex-col items-center justify-center relative overflow-hidden">
-                  {/* Decorative QR Pattern */}
-                  <div className="grid grid-cols-6 gap-1 w-full h-full p-1 opacity-90">
-                    {Array.from({ length: 36 }).map((_, i) => (
-                      <div 
-                        key={i} 
-                        className={`rounded-sm ${
-                          (i % 7 === 0 || i % 5 === 0 || i < 7 || i > 28) 
-                            ? 'bg-white' 
-                            : (i % 2 === 0 ? 'bg-indigo-400' : 'bg-slate-900')
-                        }`}
-                      ></div>
-                    ))}
-                  </div>
-                  {/* Centered UPI logo badge */}
-                  <div className="absolute inset-0 m-auto w-10 h-10 bg-white rounded-lg shadow-md flex items-center justify-center border border-slate-200">
-                    <span className="text-[10px] font-black text-indigo-600">UPI</span>
-                  </div>
+              {hasConfiguredUpi && (
+                <div className="text-[11px] text-slate-400 flex items-center justify-center space-x-2">
+                  <span>Supports GPay</span> • <span>PhonePe</span> • <span>Paytm</span> • <span>BHIM</span>
                 </div>
-              </div>
-
-              {/* UPI ID PILL */}
-              <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-slate-200 text-xs">
-                <span className="text-slate-500 font-medium">UPI ID:</span>
-                <span className="font-mono font-bold text-indigo-700">{activeTeacher.upiId || 'sharmaclasses@upi'}</span>
-                <button
-                  onClick={() => handleCopyCode(activeTeacher.upiId || 'sharmaclasses@upi')}
-                  className="text-slate-400 hover:text-indigo-600 p-1 cursor-pointer"
-                  title="Copy UPI ID"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="text-[11px] text-slate-400 flex items-center justify-center space-x-2">
-              <span>Supports GPay</span> • <span>PhonePe</span> • <span>Paytm</span> • <span>BHIM</span>
-            </div>
-
-            <div className="space-y-2 pt-1">
-              <a
-                href={`upi://pay?pa=${activeTeacher.upiId || 'sharmaclasses@upi'}&pn=${encodeURIComponent(activeTeacher.name)}&am=${showQRModal.feeAmount}&cu=INR`}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/30 flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
-              >
-                <span>Open in UPI App</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </a>
-
-              {showQRModal.feeStatus !== 'Paid' && (
-                <button
-                  onClick={() => {
-                    handleUpdateFee(showQRModal.id, 'Paid');
-                    setShowQRModal(null);
-                    showToast(`Payment of ₹${showQRModal.feeAmount} confirmed! Receipt generated.`);
-                  }}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center space-x-1.5 cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>{currentRole === 'student' ? 'Confirm Payment & Generate Receipt' : 'Mark as Paid Directly'}</span>
-                </button>
               )}
+
+              <div className="space-y-2 pt-1">
+                {hasConfiguredUpi && (
+                  <a
+                    href={upiPaymentUri}
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/30 flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+                  >
+                    <span>Open in UPI App</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </a>
+                )}
+
+                {showQRModal.feeStatus !== 'Paid' && (
+                  <button
+                    onClick={() => {
+                      handleUpdateFee(showQRModal.id, 'Paid');
+                      setShowQRModal(null);
+                      showToast(`Payment of ₹${showQRModal.feeAmount} confirmed! Receipt generated.`);
+                    }}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center space-x-1.5 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{currentRole === 'student' ? 'Confirm Payment & Generate Receipt' : 'Mark as Paid Directly'}</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* PUBLIC ADMISSIONS MICROSITE & DEMO SHOWCASE MODAL */}
       {showLandingPageModal && (
