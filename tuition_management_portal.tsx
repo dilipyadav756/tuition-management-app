@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import StudyMaterialsManager, { FileAttachment } from './src/components/StudyMaterialsManager';
 import MentorShowcase from './src/components/MentorShowcase';
+import DemoTuitionCenters from './src/components/DemoTuitionCenters';
 import { 
   Users, 
   BookOpen, 
@@ -1024,6 +1025,7 @@ export default function App({
   // BUSINESS GROWTH & INTERACTIVE MODALS
   const [showQRModal, setShowQRModal] = useState<Student | null>(null);
   const [showLandingPageModal, setShowLandingPageModal] = useState(false);
+  const [landingPageTab, setLandingPageTab] = useState<'MICROSITE' | 'DEMO_CENTERS'>('MICROSITE');
 
   // Student join code input state
   const [inputJoinCode, setInputJoinCode] = useState('');
@@ -5074,112 +5076,158 @@ export default function App({
         </div>
       )}
 
-      {/* PUBLIC ADMISSIONS MICROSITE MODAL */}
+      {/* PUBLIC ADMISSIONS MICROSITE & DEMO SHOWCASE MODAL */}
       {showLandingPageModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 border border-slate-200 my-8">
-            <div className="flex items-center justify-between border-b pb-4">
+          <div className={`bg-white rounded-3xl shadow-2xl ${landingPageTab === 'DEMO_CENTERS' ? 'max-w-6xl' : 'max-w-2xl'} w-full p-6 sm:p-8 space-y-6 border border-slate-200 my-8 transition-all duration-300`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
               <div className="flex items-center space-x-2.5">
                 <div className="p-2 bg-purple-100 text-purple-700 rounded-xl">
                   <Globe className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">Public Tuition Admissions Microsite</h3>
-                  <p className="text-xs text-slate-500">Ready-to-share admissions landing page for prospective parents & students</p>
+                  <h3 className="text-lg font-bold text-slate-900">Public Tuition Admissions & Showcase</h3>
+                  <p className="text-xs text-slate-500">Live preview of student admissions landing page & demo tuition network</p>
                 </div>
               </div>
-              <button onClick={() => setShowLandingPageModal(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
+
+              {/* TAB TOGGLE: MICROSITE vs DEMO CENTERS */}
+              <div className="flex items-center space-x-2">
+                <div className="bg-slate-100 p-1 rounded-xl flex items-center space-x-1 border border-slate-200/80">
+                  <button
+                    type="button"
+                    onClick={() => setLandingPageTab('MICROSITE')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      landingPageTab === 'MICROSITE'
+                        ? 'bg-white text-purple-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    My Center Microsite
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLandingPageTab('DEMO_CENTERS')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      landingPageTab === 'DEMO_CENTERS'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Demo Tuition Centers & Tools
+                  </button>
+                </div>
+                <button onClick={() => setShowLandingPageModal(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            {/* PREVIEW CONTAINER */}
-            <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl border border-slate-800 space-y-5 shadow-lg">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
-                <div>
-                  <span className="text-xs bg-indigo-500/30 text-indigo-300 px-3 py-1 rounded-full border border-indigo-400/30 font-semibold">
-                    Admissions Open • 2026-2027 Academic Year
-                  </span>
-                  <h2 className="text-2xl font-black mt-2 text-white">{activeTeacher.name}</h2>
-                  <p className="text-indigo-200 text-sm">{activeTeacher.subject}</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    📍 {activeTeacher.location || 'Main Center, Sector 14, City Park'} • 📞 {activeTeacher.phone}
-                  </p>
-                </div>
-              </div>
-
-              {/* HEADLINE CALLOUT */}
-              <div className="p-4 bg-white/10 rounded-xl border border-white/15">
-                <p className="text-xs font-bold text-amber-300 uppercase tracking-wider">🏆 Track Record & Results</p>
-                <p className="text-sm font-semibold text-white mt-1">
-                  "{activeTeacher.resultsHeadline || '98% Students Scored Above 90% in 2026 Board Exams!'}"
-                </p>
-                <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                  {activeTeacher.bio || '15+ Years experience preparing students for Board exams and competitive entrance tests.'}
-                </p>
-              </div>
-
-              {/* ACTIVE BATCHES WITH JOIN CODES */}
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">Available Batches & Join Codes</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {teacherBatchesList.map(b => (
-                    <div key={b.id} className="p-3 bg-white/5 rounded-xl border border-white/10 flex items-center justify-between">
-                      <div>
-                        <p className="font-bold text-sm text-white">{b.name}</p>
-                        <p className="text-xs text-slate-400">{b.schedule} • ₹{b.monthlyFee}/mo</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold block">Join Code</span>
-                        <span className="font-mono text-emerald-400 font-extrabold text-base">{b.joinCode}</span>
-                      </div>
+            {/* TAB 1: TEACHER'S OWN MICROSITE PREVIEW */}
+            {landingPageTab === 'MICROSITE' ? (
+              <>
+                <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl border border-slate-800 space-y-5 shadow-lg">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                    <div>
+                      <span className="text-xs bg-indigo-500/30 text-indigo-300 px-3 py-1 rounded-full border border-indigo-400/30 font-semibold">
+                        Admissions Open • 2026-2027 Academic Year
+                      </span>
+                      <h2 className="text-2xl font-black mt-2 text-white">{activeTeacher.name}</h2>
+                      <p className="text-indigo-200 text-sm">{activeTeacher.subject}</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        📍 {activeTeacher.location || 'Main Center, Sector 14, City Park'} • 📞 {activeTeacher.phone}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+                  </div>
 
-            {/* ACTION BUTTONS */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-              <span className="text-xs text-slate-500">
-                Share this link with parents to let them review credentials and join batches.
-              </span>
-              <div className="flex items-center space-x-2 w-full sm:w-auto">
-                <button
-                  onClick={() => {
+                  {/* HEADLINE CALLOUT */}
+                  <div className="p-4 bg-white/10 rounded-xl border border-white/15">
+                    <p className="text-xs font-bold text-amber-300 uppercase tracking-wider">🏆 Track Record & Results</p>
+                    <p className="text-sm font-semibold text-white mt-1">
+                      "{activeTeacher.resultsHeadline || '98% Students Scored Above 90% in 2026 Board Exams!'}"
+                    </p>
+                    <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                      {activeTeacher.bio || '15+ Years experience preparing students for Board exams and competitive entrance tests.'}
+                    </p>
+                  </div>
+
+                  {/* ACTIVE BATCHES WITH JOIN CODES */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">Available Batches & Join Codes</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {teacherBatchesList.map(b => (
+                        <div key={b.id} className="p-3 bg-white/5 rounded-xl border border-white/10 flex items-center justify-between">
+                          <div>
+                            <p className="font-bold text-sm text-white">{b.name}</p>
+                            <p className="text-xs text-slate-400">{b.schedule} • ₹{b.monthlyFee}/mo</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Join Code</span>
+                            <span className="font-mono text-emerald-400 font-extrabold text-base">{b.joinCode}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ACTION BUTTONS */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                  <span className="text-xs text-slate-500">
+                    Share this link with parents to let them review credentials and join batches.
+                  </span>
+                  <div className="flex items-center space-x-2 w-full sm:w-auto">
+                    <button
+                      onClick={() => {
+                        setShowLandingPageModal(false);
+                        setActiveTab('mentors');
+                      }}
+                      className="flex-1 sm:flex-none px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+                    >
+                      <GraduationCap className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>View Mentor Showcase</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin}/?tuition=${activeTeacher.id}`;
+                        navigator.clipboard?.writeText(url);
+                        showToast('Public Admissions Microsite link copied!');
+                      }}
+                      className="flex-1 sm:flex-none px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 shadow-md shadow-purple-600/30 transition-all cursor-pointer"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Copy Link</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const message = encodeURIComponent(
+                          `Admissions Open at ${activeTeacher.name} for ${activeTeacher.subject}! Join active batches directly with join codes. Contact: ${activeTeacher.phone}.`
+                        );
+                        window.open(`https://wa.me/?text=${message}`, '_blank');
+                      }}
+                      className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-600/30 transition-all cursor-pointer"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>Share on WhatsApp</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* TAB 2: SELECTED TUITION CENTERS & GENERAL PLATFORM FEATURES DEMO */
+              <div className="max-h-[75vh] overflow-y-auto pr-1">
+                <DemoTuitionCenters
+                  onBatchJoinClick={() => {
+                    setShowLandingPageModal(false);
+                    setShowJoinBatchModal(true);
+                  }}
+                  onExploreMore={() => {
                     setShowLandingPageModal(false);
                     setActiveTab('mentors');
                   }}
-                  className="flex-1 sm:flex-none px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
-                >
-                  <GraduationCap className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>View Mentor Showcase</span>
-                </button>
-                <button
-                  onClick={() => {
-                    const url = `${window.location.origin}/?tuition=${activeTeacher.id}`;
-                    navigator.clipboard?.writeText(url);
-                    showToast('Public Admissions Microsite link copied!');
-                  }}
-                  className="flex-1 sm:flex-none px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 shadow-md shadow-purple-600/30 transition-all cursor-pointer"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>Copy Link</span>
-                </button>
-                <button
-                  onClick={() => {
-                    const message = encodeURIComponent(
-                      `Admissions Open at ${activeTeacher.name} for ${activeTeacher.subject}! Join active batches directly with join codes. Contact: ${activeTeacher.phone}.`
-                    );
-                    window.open(`https://wa.me/?text=${message}`, '_blank');
-                  }}
-                  className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-600/30 transition-all cursor-pointer"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  <span>Share on WhatsApp</span>
-                </button>
+                />
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

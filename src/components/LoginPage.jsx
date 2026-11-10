@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import DemoTuitionCenters from './DemoTuitionCenters';
 import { 
   GraduationCap, 
   ShieldCheck, 
@@ -39,6 +40,7 @@ export default function LoginPage({ onLoginSuccess }) {
 
   // Modals
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [showDemoCentersModal, setShowDemoCentersModal] = useState(false);
   const [forgotIdentifier, setForgotIdentifier] = useState('');
   const [tenantSwitcherData, setTenantSwitcherData] = useState(null); // { user, tenants, token }
 
@@ -1127,6 +1129,19 @@ export default function LoginPage({ onLoginSuccess }) {
             <Upload className="w-3.5 h-3.5" />
             <span>Load Workspace File (.json) from Computer</span>
           </button>
+
+          {/* PUBLIC DEMO SHOWCASE TRIGGER */}
+          <div className="pt-3 border-t border-slate-800/80 mt-3">
+            <button
+              type="button"
+              onClick={() => setShowDemoCentersModal(true)}
+              className="text-xs text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center space-x-1.5 transition-colors cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Explore Demo Tuition Centers & Platform Features</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1230,6 +1245,45 @@ export default function LoginPage({ onLoginSuccess }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 5. PUBLIC DEMO TUITION CENTERS & MENTORS MODAL */}
+      {/* ===================================================================== */}
+      {showDemoCentersModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-start justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="bg-slate-50 text-slate-900 rounded-3xl shadow-2xl max-w-6xl w-full my-6 overflow-hidden border border-slate-200 relative animate-in fade-in zoom-in-95">
+            <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
+                  <GraduationCap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base leading-snug">
+                    EduMaster Public Landing Showcase
+                  </h3>
+                  <p className="text-xs text-slate-500">Selected Tuition Centers, Verified Demo Mentors & Platform Capabilities</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDemoCentersModal(false)}
+                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-2 sm:p-4 max-h-[82vh] overflow-y-auto">
+              <DemoTuitionCenters
+                onBatchJoinClick={() => {
+                  setShowDemoCentersModal(false);
+                  setActiveRoleTab('STUDENT');
+                  setStudentAuthMethod('PASSWORD');
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
