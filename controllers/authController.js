@@ -243,7 +243,16 @@ export const login = async (req, res) => {
 
     // Verify password with bcrypt
     let isMatch = false;
-    if (password === 'demo123' || password === 'Sharma@123' || password === 'Student@123' || password === 'ADMIN2026' || password === 'admin123') {
+    if (user.role === 'SUPER_ADMIN') {
+      // Invalidate revoked / compromised passkeys immediately
+      if (['ADMIN2026', 'admin123', 'superadmin', 'admin'].includes(password)) {
+        return res.status(401).json({
+          success: false,
+          message: 'This passkey has been permanently revoked and compromised. Please use your private Super-Admin password.'
+        });
+      }
+      isMatch = await bcrypt.compare(password, user.passwordHash);
+    } else if (password === 'demo123' || password === 'Sharma@123' || password === 'Student@123') {
       isMatch = true;
     } else {
       isMatch = await bcrypt.compare(password, user.passwordHash);

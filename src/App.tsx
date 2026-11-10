@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import TuitionPortal from '../tuition_management_portal';
 import LoginPage from './components/LoginPage';
 import SuperAdminWorkspace from './components/SuperAdminWorkspace';
+import SuperAdminLogin from './components/SuperAdminLogin';
 import { Key, Lock, X, Sparkles, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export default function App() {
@@ -16,13 +17,12 @@ export default function App() {
 
   const [showLoginScreen, setShowLoginScreen] = useState(false);
   const [showAdminPasskeyModal, setShowAdminPasskeyModal] = useState(false);
-  const [passkeyInput, setPasskeyInput] = useState('');
-  const [passkeyError, setPasskeyError] = useState('');
 
   const handleLoginSuccess = (authData) => {
-    setCurrentUser(authData.user);
+    const user = authData?.user || authData;
+    setCurrentUser(user);
     try {
-      localStorage.setItem('tm_auth_user', JSON.stringify(authData.user));
+      localStorage.setItem('tm_auth_user', JSON.stringify(user));
     } catch {}
     setShowLoginScreen(false);
   };
@@ -47,31 +47,6 @@ export default function App() {
       });
     } catch {}
     setShowLoginScreen(true);
-  };
-
-  // Direct passkey authorization into Super-Admin Workspace
-  const handleAdminPasskeySubmit = (e) => {
-    e.preventDefault();
-    const trimmed = passkeyInput.trim();
-    if (trimmed === 'ADMIN2026' || trimmed === 'admin123' || trimmed === 'superadmin') {
-      const adminUser = {
-        id: 'admin_root',
-        name: 'Platform Super-Admin',
-        email: 'admin@edumaster.io',
-        role: 'SUPER_ADMIN',
-        tuitionId: 'system_root',
-        tuitionName: 'EduMaster Global Multi-Tenant Network'
-      };
-      setCurrentUser(adminUser);
-      try {
-        localStorage.setItem('tm_auth_user', JSON.stringify(adminUser));
-      } catch {}
-      setShowAdminPasskeyModal(false);
-      setPasskeyInput('');
-      setPasskeyError('');
-    } else {
-      setPasskeyError('Invalid secret passkey. Access denied.');
-    }
   };
 
   // Super-Admin switches into a specific teacher's portal to inspect
@@ -168,70 +143,24 @@ export default function App() {
         </button>
       </div>
 
-      {/* SECRET PASSKEY MODAL FOR SUPER-ADMIN */}
+      {/* SECURE SUPER-ADMIN AUTHENTICATION MODAL */}
       {showAdminPasskeyModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-purple-800/80 rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center space-x-2.5">
-                <div className="p-2 bg-purple-500/10 text-purple-400 rounded-xl border border-purple-500/20">
-                  <Key className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-white text-base">Super-Admin Access</h3>
-                  <p className="text-[11px] text-slate-400">Enter App Owner secret passkey</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => { setShowAdminPasskeyModal(false); setPasskeyError(''); setPasskeyInput(''); }}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAdminPasskeySubmit} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-bold text-slate-300 mb-1">Secret Master Passkey</label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-                  <input
-                    required
-                    autoFocus
-                    type="password"
-                    value={passkeyInput}
-                    onChange={(e) => { setPasskeyInput(e.target.value); setPasskeyError(''); }}
-                    placeholder="Enter passkey (e.g. ADMIN2026)"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white font-mono placeholder-slate-500 focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-500 mt-1">Authorized App Owners & System Administrators only.</p>
-              </div>
-
-              {passkeyError && (
-                <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs flex items-center space-x-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{passkeyError}</span>
-                </div>
-              )}
-
-              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowAdminPasskeyModal(false)}
-                  className="px-4 py-2 border border-slate-700 text-slate-400 hover:text-slate-200 rounded-xl font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white font-bold rounded-xl shadow-lg shadow-purple-600/30 flex items-center space-x-1.5"
-                >
-                  <Key className="w-3.5 h-3.5" />
-                  <span>Unlock Console</span>
-                </button>
-              </div>
-            </form>
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-purple-800/80 rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 animate-in fade-in zoom-in-95 relative my-8">
+            <button 
+              onClick={() => setShowAdminPasskeyModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800/60 transition-colors"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <SuperAdminLogin
+              onSuccess={(authData) => {
+                setShowAdminPasskeyModal(false);
+                handleLoginSuccess(authData);
+              }}
+              onCancel={() => setShowAdminPasskeyModal(false)}
+            />
           </div>
         </div>
       )}

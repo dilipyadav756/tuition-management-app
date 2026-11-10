@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import DemoTuitionCenters from './DemoTuitionCenters';
+import SuperAdminLogin from './SuperAdminLogin';
 import { 
   GraduationCap, 
   ShieldCheck, 
@@ -62,10 +63,6 @@ export default function LoginPage({ onLoginSuccess }) {
   const [studentOtp, setStudentOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
-
-  // Form Fields - Super-Admin Login
-  const [adminUsername, setAdminUsername] = useState('admin@edumaster.io');
-  const [adminPasskey, setAdminPasskey] = useState('');
 
   // Helper to trigger OTP countdown
   const startOtpTimer = () => {
@@ -415,37 +412,6 @@ export default function LoginPage({ onLoginSuccess }) {
     setForgotIdentifier('');
   };
 
-  // 7. Super-Admin Passkey Login Submit
-  const handleSuperAdminLogin = (e) => {
-    e.preventDefault();
-    setErrorMessage('');
-    setLoading(true);
-
-    setTimeout(() => {
-      setLoading(false);
-      const trimmed = adminPasskey.trim();
-      if (trimmed === 'ADMIN2026' || trimmed === 'admin123' || trimmed === 'superadmin') {
-        const authData = {
-          token: 'jwt_mock_superadmin_token_' + Date.now(),
-          user: {
-            id: 'admin_root',
-            name: 'Platform Super-Admin',
-            email: adminUsername.trim() || 'admin@edumaster.io',
-            role: 'SUPER_ADMIN',
-            tuitionId: 'system_root',
-            tuitionName: 'EduMaster Global Multi-Tenant Network'
-          }
-        };
-        setSuccessMessage('Super-Admin authenticated! Opening Command Center...');
-        if (onLoginSuccess) {
-          setTimeout(() => onLoginSuccess(authData), 600);
-        }
-      } else {
-        setErrorMessage('Invalid Super-Admin credentials or passkey. Access denied.');
-      }
-    }, 600);
-  };
-
   // 8. Direct Backup File Import from Computer (.json)
   const handleImportBackupFromComputer = (e) => {
     const file = e.target.files?.[0];
@@ -598,99 +564,76 @@ export default function LoginPage({ onLoginSuccess }) {
           </button>
         </div>
 
-        {/* 1-CLICK QUICK DEMO PROFILES */}
-        <div className="p-3 bg-slate-800/50 border border-slate-700/60 rounded-2xl space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Quick Demo Accounts</span>
-            </span>
-            <span className="text-[10px] text-slate-400">1-click test fill</span>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveRoleTab('TEACHER');
-                setTeacherView('LOGIN');
-                setTeacherEmailOrPhone('sharma.tuitions@gmail.com');
-                setTeacherPassword('Sharma@123');
-                setErrorMessage('');
-              }}
-              className="text-left p-2 rounded-xl bg-slate-900/60 hover:bg-indigo-950/70 hover:border-indigo-500/50 border border-slate-800 text-xs transition-all cursor-pointer"
-            >
-              <p className="font-bold text-indigo-300 truncate">👨‍🏫 Prof. Rajesh Sharma</p>
-              <p className="text-[10px] text-slate-400 truncate">Maths & Physics (t1)</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveRoleTab('TEACHER');
-                setTeacherView('LOGIN');
-                setTeacherEmailOrPhone('anita.science@gmail.com');
-                setTeacherPassword('demo123');
-                setErrorMessage('');
-              }}
-              className="text-left p-2 rounded-xl bg-slate-900/60 hover:bg-indigo-950/70 hover:border-indigo-500/50 border border-slate-800 text-xs transition-all cursor-pointer"
-            >
-              <p className="font-bold text-purple-300 truncate">👩‍🏫 Ms. Anita Verma</p>
-              <p className="text-[10px] text-slate-400 truncate">Chemistry & Bio (t2)</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveRoleTab('STUDENT');
-                setStudentAuthMethod('PASSWORD');
-                setStudentIdentifier('9111122222');
-                setStudentPassword('Student@123');
-                setErrorMessage('');
-              }}
-              className="text-left p-2 rounded-xl bg-slate-900/60 hover:bg-emerald-950/70 hover:border-emerald-500/50 border border-slate-800 text-xs transition-all cursor-pointer"
-            >
-              <p className="font-bold text-emerald-300 truncate">👨‍🎓 Aarav Patel</p>
-              <p className="text-[10px] text-slate-400 truncate">Multi-Tuition Switcher</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveRoleTab('STUDENT');
-                setStudentAuthMethod('PASSWORD');
-                setStudentIdentifier('9333344444');
-                setStudentPassword('demo123');
-                setErrorMessage('');
-              }}
-              className="text-left p-2 rounded-xl bg-slate-900/60 hover:bg-emerald-950/70 hover:border-emerald-500/50 border border-slate-800 text-xs transition-all cursor-pointer"
-            >
-              <p className="font-bold text-emerald-300 truncate">👩‍🎓 Priya Singh</p>
-              <p className="text-[10px] text-slate-400 truncate">Single-Tuition (s2)</p>
-            </button>
-
-            {/* SUPER ADMIN DEMO PILL */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveRoleTab('SUPER_ADMIN');
-                setAdminUsername('admin@edumaster.io');
-                setAdminPasskey('ADMIN2026');
-                setErrorMessage('');
-              }}
-              className="col-span-2 text-left p-2 rounded-xl bg-gradient-to-r from-purple-950/70 via-indigo-950/70 to-purple-950/70 hover:border-purple-500/60 border border-purple-800/40 text-xs transition-all cursor-pointer flex items-center justify-between"
-            >
-              <div className="truncate">
-                <p className="font-bold text-purple-300 flex items-center gap-1.5 truncate">
-                  <Key className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                  <span>👑 Demo Super-Admin Workspace</span>
-                </p>
-                <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                  admin@edumaster.io • Passkey: <span className="font-mono text-purple-300">ADMIN2026</span>
-                </p>
-              </div>
-              <span className="text-[10px] bg-purple-500/20 text-purple-300 font-bold px-2 py-0.5 rounded-full border border-purple-500/30 shrink-0 ml-2">
-                App Owner
+        {/* 1-CLICK QUICK DEMO PROFILES (ONLY FOR TEACHER/STUDENT EXPLORATION, NEVER ON SUPER-ADMIN) */}
+        {activeRoleTab !== 'SUPER_ADMIN' && (
+          <div className="p-3 bg-slate-800/50 border border-slate-700/60 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Quick Demo Accounts</span>
               </span>
-            </button>
+              <span className="text-[10px] text-slate-400">1-click test fill</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveRoleTab('TEACHER');
+                  setTeacherView('LOGIN');
+                  setTeacherEmailOrPhone('sharma.tuitions@gmail.com');
+                  setTeacherPassword('Sharma@123');
+                  setErrorMessage('');
+                }}
+                className="text-left p-2 rounded-xl bg-slate-900/60 hover:bg-indigo-950/70 hover:border-indigo-500/50 border border-slate-800 text-xs transition-all cursor-pointer"
+              >
+                <p className="font-bold text-indigo-300 truncate">👨‍🏫 Prof. Rajesh Sharma</p>
+                <p className="text-[10px] text-slate-400 truncate">Maths & Physics (t1)</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveRoleTab('TEACHER');
+                  setTeacherView('LOGIN');
+                  setTeacherEmailOrPhone('anita.science@gmail.com');
+                  setTeacherPassword('demo123');
+                  setErrorMessage('');
+                }}
+                className="text-left p-2 rounded-xl bg-slate-900/60 hover:bg-indigo-950/70 hover:border-indigo-500/50 border border-slate-800 text-xs transition-all cursor-pointer"
+              >
+                <p className="font-bold text-purple-300 truncate">👩‍🏫 Ms. Anita Verma</p>
+                <p className="text-[10px] text-slate-400 truncate">Chemistry & Bio (t2)</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveRoleTab('STUDENT');
+                  setStudentAuthMethod('PASSWORD');
+                  setStudentIdentifier('9111122222');
+                  setStudentPassword('Student@123');
+                  setErrorMessage('');
+                }}
+                className="text-left p-2 rounded-xl bg-slate-900/60 hover:bg-emerald-950/70 hover:border-emerald-500/50 border border-slate-800 text-xs transition-all cursor-pointer"
+              >
+                <p className="font-bold text-emerald-300 truncate">👨‍🎓 Aarav Patel</p>
+                <p className="text-[10px] text-slate-400 truncate">Multi-Tuition Switcher</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveRoleTab('STUDENT');
+                  setStudentAuthMethod('PASSWORD');
+                  setStudentIdentifier('9333344444');
+                  setStudentPassword('demo123');
+                  setErrorMessage('');
+                }}
+                className="text-left p-2 rounded-xl bg-slate-900/60 hover:bg-emerald-950/70 hover:border-emerald-500/50 border border-slate-800 text-xs transition-all cursor-pointer"
+              >
+                <p className="font-bold text-emerald-300 truncate">👩‍🎓 Priya Singh</p>
+                <p className="text-[10px] text-slate-400 truncate">Single-Tuition (s2)</p>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* FEEDBACK BANNERS */}
         {errorMessage && (
@@ -1038,111 +981,49 @@ export default function LoginPage({ onLoginSuccess }) {
         )}
 
         {/* =================================================================== */}
-        {/* 3. SUPER-ADMIN / APP OWNER LOGIN PANEL */}
+        {/* 3. SUPER-ADMIN / APP OWNER LOGIN PANEL (PRIVATE & SECURE) */}
         {/* =================================================================== */}
         {activeRoleTab === 'SUPER_ADMIN' && (
-          <form onSubmit={handleSuperAdminLogin} className="space-y-4">
-            <div className="p-3 bg-purple-950/40 border border-purple-800/60 rounded-2xl text-xs text-purple-200 flex items-start space-x-2.5">
-              <Key className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold text-white">App Owner & Platform Administration</p>
-                <p className="text-[11px] text-purple-300/80 mt-0.5">
-                  Restricted access. Requires verified administrative credentials or secret master passkey.
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Super-Admin Email / ID
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
-                <input
-                  required
-                  type="text"
-                  value={adminUsername}
-                  onChange={(e) => setAdminUsername(e.target.value)}
-                  placeholder="admin@edumaster.io"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-slate-300">Secret Master Passkey</label>
-                <span className="text-[10px] text-purple-400 font-mono">Restricted Admin Portal</span>
-              </div>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
-                <input
-                  required
-                  type={showPassword ? 'text' : 'password'}
-                  value={adminPasskey}
-                  onChange={(e) => setAdminPasskey(e.target.value)}
-                  placeholder="Enter administrator passkey"
-                  className="w-full pl-10 pr-10 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-200"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white font-bold rounded-xl text-sm shadow-xl shadow-purple-600/30 flex items-center justify-center space-x-2 transition-all cursor-pointer"
-            >
-              {loading ? (
-                <RotateCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Key className="w-4 h-4" />
-                  <span>Authenticate as Super-Admin</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
+          <div className="pt-2">
+            <SuperAdminLogin 
+              onSuccess={onLoginSuccess}
+            />
+          </div>
         )}
 
-        {/* QUICK RESTORE FROM COMPUTER FILE (.JSON) */}
-        <div className="pt-4 border-t border-slate-800 text-center">
-          <input
-            id="login-backup-file-input"
-            type="file"
-            accept=".json"
-            onChange={handleImportBackupFromComputer}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => document.getElementById('login-backup-file-input')?.click()}
-            className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center justify-center space-x-1.5 mx-auto bg-slate-800/80 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-700/80 transition-all cursor-pointer shadow-sm"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Load Workspace File (.json) from Computer</span>
-          </button>
-
-          {/* PUBLIC DEMO SHOWCASE TRIGGER */}
-          <div className="pt-3 border-t border-slate-800/80 mt-3">
+        {/* QUICK RESTORE FROM COMPUTER FILE (.JSON) & DEMO SHOWCASE (STUDENT/TEACHER ONLY) */}
+        {activeRoleTab !== 'SUPER_ADMIN' && (
+          <div className="pt-4 border-t border-slate-800 text-center">
+            <input
+              id="login-backup-file-input"
+              type="file"
+              accept=".json"
+              onChange={handleImportBackupFromComputer}
+              className="hidden"
+            />
             <button
               type="button"
-              onClick={() => setShowDemoCentersModal(true)}
-              className="text-xs text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center space-x-1.5 transition-colors cursor-pointer"
+              onClick={() => document.getElementById('login-backup-file-input')?.click()}
+              className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center justify-center space-x-1.5 mx-auto bg-slate-800/80 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-700/80 transition-all cursor-pointer shadow-sm"
             >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Explore Demo Tuition Centers & Platform Features</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+              <Upload className="w-3.5 h-3.5" />
+              <span>Load Workspace File (.json) from Computer</span>
             </button>
+
+            {/* PUBLIC DEMO SHOWCASE TRIGGER */}
+            <div className="pt-3 border-t border-slate-800/80 mt-3">
+              <button
+                type="button"
+                onClick={() => setShowDemoCentersModal(true)}
+                className="text-xs text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center space-x-1.5 transition-colors cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Explore Demo Tuition Centers & Platform Features</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ===================================================================== */}
