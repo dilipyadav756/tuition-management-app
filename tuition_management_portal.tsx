@@ -212,7 +212,7 @@ export interface ScoreRecord {
 // --- INITIAL MOCK DATA ---
 
 // Strictly restricted demo accounts visible in the public top header selector
-export const DEMO_PUBLIC_TEACHERS: { id: string; name: string; subject: string }[] = [
+const DEMO_PUBLIC_TEACHERS: { id: string; name: string; subject: string }[] = [
   { id: 't1', name: 'Prof. Rajesh Sharma', subject: 'Mathematics & Physics' },
   { id: 't2', name: 'Ms. Anita Verma', subject: 'Chemistry & Biology' }
 ];
