@@ -6,7 +6,6 @@ import {
   Globe, 
   Key, 
   Download, 
-  Upload, 
   Lock, 
   ShieldCheck, 
   User, 
@@ -47,7 +46,6 @@ export interface HeaderProps {
   isTeacherUnlocked?: boolean;
   onOpenChangePin?: () => void;
   onExportData?: () => void;
-  onImportDataClick?: () => void;
   onLockTeacher?: () => void;
 }
 
@@ -66,7 +64,6 @@ export default function Header({
   isTeacherUnlocked = false,
   onOpenChangePin,
   onExportData,
-  onImportDataClick,
   onLockTeacher,
 }: HeaderProps) {
   // Ensure the selected value always stays constrained to demo accounts for public users
@@ -167,20 +164,10 @@ export default function Header({
                     <button
                       onClick={onExportData}
                       className="bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all border border-slate-700"
-                      title="Export Tuition Backup (JSON)"
+                      title="Export Tuition Reports & Backups (JSON, Excel, CSV)"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span className="hidden xl:inline">Export</span>
-                    </button>
-                  )}
-                  {onImportDataClick && (
-                    <button
-                      onClick={onImportDataClick}
-                      className="bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all border border-slate-700"
-                      title="Import & Load Backup File (.json)"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      <span className="hidden xl:inline">Import</span>
                     </button>
                   )}
                   {onLockTeacher && (
@@ -276,3 +263,4 @@ export default function Header({
     </header>
   );
 }
+

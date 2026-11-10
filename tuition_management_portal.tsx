@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import StudyMaterialsManager, { FileAttachment } from './src/components/StudyMaterialsManager';
 import MentorShowcase from './src/components/MentorShowcase';
 import DemoTuitionCenters from './src/components/DemoTuitionCenters';
+import ExportModal from './src/components/ExportModal';
+import { ExportDataset } from './src/utils/exportManager';
 import { 
   Users, 
   BookOpen, 
@@ -1239,6 +1241,18 @@ export default function App({
     );
   }, [tests, currentRole, currentTeacherId, activeStudent]);
 
+  // Export Dataset (Strictly isolated to authorized teacher/center scope)
+  const exportDataset: ExportDataset = useMemo(() => ({
+    teacher: activeTeacher,
+    batches: teacherBatchesList,
+    students: teacherStudents,
+    notes: visibleNotes,
+    tests: visibleTests,
+    attendanceRecords,
+    scores,
+    pendingRequests: teacherPendingRequests
+  }), [activeTeacher, teacherBatchesList, teacherStudents, visibleNotes, visibleTests, attendanceRecords, scores, teacherPendingRequests]);
+
   // Statistics
   const totalStudentsCount = teacherStudents.length;
   const paidCount = teacherStudents.filter(s => s.feeStatus === 'Paid').length;
@@ -1973,28 +1987,13 @@ export default function App({
                       <span className="hidden xl:inline">PIN</span>
                     </button>
                     <button
-                      onClick={handleExportWorkspaceData}
-                      className="bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all border border-slate-700"
-                      title="Export Tuition Backup (JSON)"
+                      onClick={() => setShowExportModal(true)}
+                      className="bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all border border-slate-700 cursor-pointer"
+                      title="Export Tuition Reports & Backups (JSON, Excel, CSV)"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span className="hidden xl:inline">Export</span>
                     </button>
-                    <button
-                      onClick={() => fileImportInputRef.current?.click()}
-                      className="bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all border border-slate-700"
-                      title="Import & Load Backup File (.json) from Computer"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      <span className="hidden xl:inline">Import</span>
-                    </button>
-                    <input
-                      ref={fileImportInputRef}
-                      type="file"
-                      accept=".json"
-                      onChange={handleImportWorkspaceFile}
-                      className="hidden"
-                    />
                     <button
                       onClick={handleLockTeacherProfile}
                       className="bg-amber-600/80 hover:bg-amber-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all border border-amber-500/40"
@@ -5227,6 +5226,15 @@ export default function App({
           </div>
         </div>
       )}
+
+      {/* COMPREHENSIVE WORKSPACE EXPORT MODAL (JSON, EXCEL, CSV) */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        dataset={exportDataset}
+        currentUser={currentUser}
+        onToast={showToast}
+      />
 
     </div>
   );
