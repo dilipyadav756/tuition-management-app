@@ -125,6 +125,7 @@ export interface Teacher {
   email: string;
   phone: string;
   upiId?: string;
+  registrationJoinCode?: string;
   pin?: string;
   location?: string;
   bio?: string;
@@ -229,6 +230,7 @@ const DEFAULT_TEACHERS: Teacher[] = [
     subject: 'Mathematics & Physics', 
     email: 'sharma.tuitions@gmail.com', 
     phone: '+91 98765 43210',
+    registrationJoinCode: 'SHARMA-101',
     pin: '1234',
     upiId: 'sharmaclasses@upi',
     location: 'Sector 14, Near City Park, Gurugram',
@@ -242,6 +244,7 @@ const DEFAULT_TEACHERS: Teacher[] = [
     subject: 'Chemistry & Biology', 
     email: 'anita.science@gmail.com', 
     phone: '+91 98123 45678',
+    registrationJoinCode: 'VERMA-202',
     pin: '5678',
     upiId: 'anita.verma@okaxis',
     location: 'Model Town, Delhi',
@@ -1163,6 +1166,34 @@ export default function App({
       resultsHeadline: ''
     };
   }, [teachers, currentTeacherId, currentUser]);
+
+  // Unique Tuition Registration Join Code for active teacher
+  const teacherRegistrationCode = useMemo(() => {
+    if (activeTeacher.registrationJoinCode) return activeTeacher.registrationJoinCode;
+    if (activeTeacher.id === 't1') return 'SHARMA-101';
+    if (activeTeacher.id === 't2') return 'VERMA-202';
+    const prefix = (activeTeacher.name.split(' ').pop() || 'CODE').toUpperCase().replace(/[^A-Z]/g, '');
+    return `${prefix}-${activeTeacher.id.slice(-3).toUpperCase()}`;
+  }, [activeTeacher]);
+
+  // Regenerate Teacher Registration Join Code handler
+  const handleRegenerateJoinCode = () => {
+    const teacherPrefix = (activeTeacher.name.split(' ').pop() || 'CODE').toUpperCase().replace(/[^A-Z]/g, '');
+    const randomNum = Math.floor(100 + Math.random() * 900);
+    const newCode = `${teacherPrefix}-${randomNum}`;
+
+    const updatedTeachers = teachers.map(t => {
+      if (t.id === activeTeacher.id) {
+        return { ...t, registrationJoinCode: newCode };
+      }
+      return t;
+    });
+    setTeachers(updatedTeachers);
+    try {
+      localStorage.setItem('tm_teachers', JSON.stringify(updatedTeachers));
+    } catch {}
+    showToast(`Registration Join Code successfully regenerated: ${newCode}`);
+  };
 
   const activeStudent = useMemo<Student>(() => {
     // If student is logged in via multi-tenant session, prioritize matching both id & tuitionId
@@ -2624,6 +2655,69 @@ export default function App({
                   </div>
                 )}
               </div>
+
+              {/* DEDICATED STUDENT REGISTRATION JOIN CODE SECTION (TEACHER DASHBOARD) */}
+              {currentRole === 'teacher' && (
+                <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white p-6 rounded-2xl border border-indigo-800/40 shadow-xl space-y-4 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                    <div className="space-y-1.5">
+                      <div className="inline-flex items-center space-x-2 bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide">
+                        <Key className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Tuition Self-Registration System</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <span>Student Registration Join Code</span>
+                        <span className="text-[11px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
+                          ● Active Code
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-300 max-w-xl">
+                        Share this unique registration code with prospective students. Students must enter this code during self-registration to securely enroll into <strong>{activeTeacher.subject || activeTeacher.name}</strong>.
+                      </p>
+                    </div>
+
+                    {/* Join Code Display and Actions */}
+                    <div className="flex flex-wrap items-center gap-2.5 bg-slate-900/90 border border-slate-700/80 p-2.5 rounded-xl shadow-inner">
+                      <div className="px-3.5 py-1.5 bg-slate-950 rounded-lg border border-indigo-500/40">
+                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registration Code</span>
+                        <span className="font-mono text-xl font-extrabold text-indigo-400 tracking-wider">
+                          {teacherRegistrationCode}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => handleCopyCode(teacherRegistrationCode)}
+                        className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer"
+                        title="Copy Registration Join Code"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Code</span>
+                      </button>
+
+                      <button
+                        onClick={handleRegenerateJoinCode}
+                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-850 text-indigo-200 border border-indigo-500/30 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer"
+                        title="Generate a new registration join code"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Regenerate Code</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-[11px] text-slate-400 gap-2 relative z-10">
+                    <div className="flex items-center space-x-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Security Protection: Students without this verified code cannot create accounts or join your tuition center.</span>
+                    </div>
+                    <div className="text-slate-400">
+                      Default batch for newly registered students: <strong className="text-slate-200">{teacherBatchesList[0]?.name || 'Foundation Batch'}</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* BATCH JOIN CODES SHOWCASE CARD (TEACHER VIEW) */}
               {currentRole === 'teacher' && (

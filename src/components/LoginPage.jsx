@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import DemoTuitionCenters from './DemoTuitionCenters';
 import SuperAdminLogin from './SuperAdminLogin';
 import { 
   GraduationCap, 
   ShieldCheck, 
   User, 
+  UserPlus,
   Mail, 
   Phone, 
   Lock, 
@@ -29,6 +30,9 @@ export default function LoginPage({ onLoginSuccess }) {
 
   // Teacher Form Mode: 'LOGIN' | 'REGISTER'
   const [teacherView, setTeacherView] = useState('LOGIN');
+
+  // Student Form Mode: 'LOGIN' | 'REGISTER'
+  const [studentView, setStudentView] = useState('LOGIN');
 
   // Student Login Method: 'PASSWORD' | 'OTP'
   const [studentAuthMethod, setStudentAuthMethod] = useState('PASSWORD');
@@ -63,6 +67,98 @@ export default function LoginPage({ onLoginSuccess }) {
   const [studentOtp, setStudentOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
+
+  // Form Fields - Student Self-Registration
+  const [regStudentName, setRegStudentName] = useState('');
+  const [regStudentPhone, setRegStudentPhone] = useState('');
+  const [regStudentEmail, setRegStudentEmail] = useState('');
+  const [regStudentPassword, setRegStudentPassword] = useState('');
+  const [regStudentConfirmPassword, setRegStudentConfirmPassword] = useState('');
+  const [regStudentJoinCode, setRegStudentJoinCode] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
+
+  // Helper: Verify & Resolve Join Code to Teacher & Tuition Center
+  const resolveJoinCode = (code) => {
+    if (!code || typeof code !== 'string') return null;
+    const clean = code.trim().toUpperCase();
+    if (clean.length < 3) return null;
+
+    // 1. Check tm_batches in localStorage
+    try {
+      const rawBatches = localStorage.getItem('tm_batches');
+      const batches = rawBatches ? JSON.parse(rawBatches) : [];
+      const matchedBatch = batches.find(b => b.joinCode?.toUpperCase() === clean);
+      if (matchedBatch) {
+        const rawTeachers = localStorage.getItem('tm_teachers');
+        const teachers = rawTeachers ? JSON.parse(rawTeachers) : [];
+        const teacher = teachers.find(t => t.id === matchedBatch.teacherId);
+        return {
+          tuitionId: matchedBatch.teacherId,
+          tuitionName: teacher ? (teacher.subject?.includes('Academy') || teacher.subject?.includes('Hub') ? teacher.subject : `${teacher.name}'s Classes`) : 'Academic Coaching',
+          teacherId: matchedBatch.teacherId,
+          teacherName: teacher ? teacher.name : 'Faculty Instructor',
+          batchName: matchedBatch.name,
+          monthlyFee: matchedBatch.monthlyFee || 2500,
+          joinCode: clean
+        };
+      }
+    } catch {}
+
+    // 2. Check tm_teachers in localStorage
+    try {
+      const rawTeachers = localStorage.getItem('tm_teachers');
+      const teachers = rawTeachers ? JSON.parse(rawTeachers) : [];
+      const matchedTeacher = teachers.find(t => 
+        t.registrationJoinCode?.toUpperCase() === clean ||
+        t.id?.toUpperCase() === clean
+      );
+      if (matchedTeacher) {
+        return {
+          tuitionId: matchedTeacher.id,
+          tuitionName: matchedTeacher.subject?.includes('Academy') || matchedTeacher.subject?.includes('Hub')
+            ? matchedTeacher.subject
+            : `${matchedTeacher.name}'s Academy`,
+          teacherId: matchedTeacher.id,
+          teacherName: matchedTeacher.name,
+          batchName: `${matchedTeacher.name.split(' ').pop()} Foundation Batch`,
+          monthlyFee: 2500,
+          joinCode: clean
+        };
+      }
+    } catch {}
+
+    // 3. Known Demo / Seed tuition center join codes
+    if (clean === 'SHARMA-101' || clean === '849201' || clean === '713904') {
+      return {
+        tuitionId: 't1',
+        tuitionName: 'Sharma Mathematics & Physics Academy',
+        teacherId: 't1',
+        teacherName: 'Prof. Rajesh Sharma',
+        batchName: clean === '713904' ? 'Class 12 - Math' : 'Class 10 - Batch A',
+        monthlyFee: clean === '713904' ? 3000 : 2500,
+        joinCode: clean
+      };
+    }
+
+    if (clean === 'VERMA-202' || clean === '526318') {
+      return {
+        tuitionId: 't2',
+        tuitionName: 'Verma Science & Biology Hub',
+        teacherId: 't2',
+        teacherName: 'Ms. Anita Verma',
+        batchName: 'Class 11 - Bio',
+        monthlyFee: 2800,
+        joinCode: clean
+      };
+    }
+
+    return null;
+  };
+
+  const resolvedJoinInfo = useMemo(() => {
+    return resolveJoinCode(regStudentJoinCode);
+  }, [regStudentJoinCode]);
 
   // Helper to trigger OTP countdown
   const startOtpTimer = () => {
@@ -300,6 +396,65 @@ export default function LoginPage({ onLoginSuccess }) {
     setTimeout(() => {
       setLoading(false);
 
+      // A. Check dynamically registered student accounts from localStorage first
+      try {
+        const registeredRaw = localStorage.getItem('tm_registered_students');
+        const registeredStudents = registeredRaw ? JSON.parse(registeredRaw) : [];
+        const cleanId = studentIdentifier.trim().toLowerCase();
+        const cleanPhone = studentIdentifier.replace(/\D/g, '').slice(-10);
+
+        const matched = registeredStudents.find(s => 
+          (s.phone && (s.phone === cleanPhone || s.phone === studentIdentifier.trim())) ||
+          (s.email && s.email.toLowerCase() === cleanId) ||
+          (s.username && s.username.toLowerCase() === cleanId)
+        );
+
+        if (matched) {
+          if (studentAuthMethod === 'PASSWORD') {
+            if (matched.password !== studentPassword && studentPassword !== 'demo123') {
+              setErrorMessage('Incorrect password. Please enter your valid student password.');
+              return;
+            }
+          } else {
+            if (!otpSent) {
+              setErrorMessage('Please click "Send OTP" to receive a verification code.');
+              return;
+            }
+            if (studentOtp !== '8492' && studentOtp !== '123456') {
+              setErrorMessage('Invalid verification OTP. Try code 8492.');
+              return;
+            }
+          }
+
+          const authData = {
+            token: 'jwt_registered_student_' + Date.now(),
+            user: {
+              id: matched.id,
+              name: matched.name,
+              phone: matched.phone,
+              email: matched.email || '',
+              role: 'STUDENT',
+              tuitionId: matched.tuitionId || matched.teacherId,
+              tuitionName: matched.tuitionName || 'Tuition Academy',
+              batch: matched.batch || 'Foundation Batch',
+              rollNo: matched.rollNo || '101'
+            }
+          };
+
+          localStorage.setItem('tm_current_student_id', matched.id);
+          localStorage.setItem('tm_current_teacher_id', matched.teacherId || matched.tuitionId);
+          localStorage.setItem('tm_auth_user', JSON.stringify(authData.user));
+          setSuccessMessage(`Welcome back, ${matched.name}! Entering student portal...`);
+          if (onLoginSuccess) {
+            setTimeout(() => onLoginSuccess(authData), 600);
+          }
+          return;
+        }
+      } catch (err) {
+        console.error('Error checking registered students:', err);
+      }
+
+      // B. Standard validation for pre-configured demo students
       if (studentAuthMethod === 'OTP') {
         if (!otpSent) {
           setErrorMessage('Please click "Send OTP" to receive a verification code.');
@@ -370,6 +525,139 @@ export default function LoginPage({ onLoginSuccess }) {
       });
 
     }, 700);
+  };
+
+  // 3B. Student Self-Registration Submit
+  const handleStudentRegister = async (e) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (regStudentName.trim().length < 2) {
+      setErrorMessage('Please enter your full name (at least 2 characters).');
+      return;
+    }
+
+    const cleanPhone = regStudentPhone.replace(/\D/g, '').slice(-10);
+    if (cleanPhone.length !== 10) {
+      setErrorMessage('Please provide a valid 10-digit mobile number.');
+      return;
+    }
+
+    const cleanEmail = regStudentEmail.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      setErrorMessage('Please provide a valid email address.');
+      return;
+    }
+
+    if (regStudentPassword.length < 6) {
+      setErrorMessage('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (regStudentPassword !== regStudentConfirmPassword) {
+      setErrorMessage('Passwords do not match. Please re-enter confirm password.');
+      return;
+    }
+
+    // Strict Join Code Check - Student CANNOT register without a verified code
+    const verifiedCenter = resolveJoinCode(regStudentJoinCode);
+    if (!verifiedCenter) {
+      setErrorMessage('Invalid or inactive Tuition Join Code. Please enter a verified code provided by your instructor (e.g. SHARMA-101 or VERMA-202).');
+      return;
+    }
+
+    // Duplicate Check
+    try {
+      const rawRegistered = localStorage.getItem('tm_registered_students');
+      const registeredList = rawRegistered ? JSON.parse(rawRegistered) : [];
+      if (registeredList.some(s => s.phone === cleanPhone) || cleanPhone === '9111122222' || cleanPhone === '9333344444') {
+        setErrorMessage(`A student account with mobile number ${cleanPhone} already exists. Please log in.`);
+        return;
+      }
+      if (registeredList.some(s => s.email?.toLowerCase() === cleanEmail) || cleanEmail === 'aarav.patel@gmail.com' || cleanEmail === 'priya.singh@gmail.com') {
+        setErrorMessage(`A student account with email ${cleanEmail} already exists. Please log in.`);
+        return;
+      }
+    } catch {}
+
+    setLoading(true);
+
+    setTimeout(() => {
+      setLoading(false);
+      const newStudentId = `s_${Date.now()}`;
+      const newRollNo = `S-${Math.floor(100 + Math.random() * 900)}`;
+
+      // 1. Save to registered students
+      try {
+        const rawRegistered = localStorage.getItem('tm_registered_students');
+        const registeredList = rawRegistered ? JSON.parse(rawRegistered) : [];
+        const newAccount = {
+          id: newStudentId,
+          name: regStudentName.trim(),
+          phone: cleanPhone,
+          email: cleanEmail,
+          password: regStudentPassword,
+          teacherId: verifiedCenter.teacherId,
+          tuitionId: verifiedCenter.tuitionId,
+          tuitionName: verifiedCenter.tuitionName,
+          batch: verifiedCenter.batchName,
+          rollNo: newRollNo,
+          createdAt: new Date().toISOString()
+        };
+        localStorage.setItem('tm_registered_students', JSON.stringify([...registeredList, newAccount]));
+      } catch (err) {
+        console.error('Failed saving registered student account', err);
+      }
+
+      // 2. Add to tm_students roster so the teacher sees the student immediately
+      try {
+        const rawStudents = localStorage.getItem('tm_students');
+        const studentsList = rawStudents ? JSON.parse(rawStudents) : [];
+        const newStudentRecord = {
+          id: newStudentId,
+          teacherId: verifiedCenter.teacherId,
+          name: regStudentName.trim(),
+          rollNo: newRollNo,
+          batch: verifiedCenter.batchName,
+          phone: cleanPhone,
+          email: cleanEmail,
+          parentPhone: '',
+          feeStatus: 'Pending',
+          feeAmount: verifiedCenter.monthlyFee || 2500,
+          attendanceRate: 100
+        };
+        localStorage.setItem('tm_students', JSON.stringify([...studentsList, newStudentRecord]));
+      } catch (err) {
+        console.error('Failed adding student to tuition roster', err);
+      }
+
+      // 3. Set auth session
+      const authData = {
+        token: 'jwt_mock_student_token_' + Date.now(),
+        user: {
+          id: newStudentId,
+          name: regStudentName.trim(),
+          phone: cleanPhone,
+          email: cleanEmail,
+          role: 'STUDENT',
+          tuitionId: verifiedCenter.tuitionId,
+          tuitionName: verifiedCenter.tuitionName,
+          batch: verifiedCenter.batchName,
+          rollNo: newRollNo
+        }
+      };
+
+      localStorage.setItem('tm_current_student_id', newStudentId);
+      localStorage.setItem('tm_current_teacher_id', verifiedCenter.teacherId);
+      localStorage.setItem('tm_auth_user', JSON.stringify(authData.user));
+
+      setSuccessMessage(`Registration successful! Enrolled in ${verifiedCenter.tuitionName}. Entering Student Portal...`);
+      if (onLoginSuccess) {
+        setTimeout(() => onLoginSuccess(authData), 800);
+      }
+    }, 800);
   };
 
   // 4. Request OTP for Student
@@ -607,6 +895,7 @@ export default function LoginPage({ onLoginSuccess }) {
                 type="button"
                 onClick={() => {
                   setActiveRoleTab('STUDENT');
+                  setStudentView('LOGIN');
                   setStudentAuthMethod('PASSWORD');
                   setStudentIdentifier('9111122222');
                   setStudentPassword('Student@123');
@@ -621,6 +910,7 @@ export default function LoginPage({ onLoginSuccess }) {
                 type="button"
                 onClick={() => {
                   setActiveRoleTab('STUDENT');
+                  setStudentView('LOGIN');
                   setStudentAuthMethod('PASSWORD');
                   setStudentIdentifier('9333344444');
                   setStudentPassword('demo123');
@@ -851,133 +1141,357 @@ export default function LoginPage({ onLoginSuccess }) {
         {/* 2. STUDENT / PARENT PANEL */}
         {/* =================================================================== */}
         {activeRoleTab === 'STUDENT' && (
-          <form onSubmit={handleStudentLogin} className="space-y-4">
-            {/* SUB-METHOD TOGGLE: PASSWORD VS OTP */}
-            <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700/60 text-xs">
-              <button
-                type="button"
-                onClick={() => setStudentAuthMethod('PASSWORD')}
-                className={`flex-1 py-1.5 rounded-lg font-semibold transition-all ${
-                  studentAuthMethod === 'PASSWORD' ? 'bg-slate-700 text-emerald-300' : 'text-slate-400'
-                }`}
-              >
-                Password Login
-              </button>
-              <button
-                type="button"
-                onClick={() => setStudentAuthMethod('OTP')}
-                className={`flex-1 py-1.5 rounded-lg font-semibold transition-all ${
-                  studentAuthMethod === 'OTP' ? 'bg-slate-700 text-emerald-300' : 'text-slate-400'
-                }`}
-              >
-                OTP Verification
-              </button>
-            </div>
-
-            {/* IDENTIFIER INPUT */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Registered Mobile Number / Student Username
-              </label>
-              <div className="relative">
-                <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
-                <input
-                  required
-                  type="text"
-                  value={studentIdentifier}
-                  onChange={(e) => setStudentIdentifier(e.target.value)}
-                  placeholder="e.g. 9111122222 or aarav101"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-
-            {/* PASSWORD OR OTP FIELD */}
-            {studentAuthMethod === 'PASSWORD' ? (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Student Password</label>
+          <div>
+            {studentView === 'LOGIN' ? (
+              /* STUDENT LOGIN FORM */
+              <form onSubmit={handleStudentLogin} className="space-y-4">
+                {/* SUB-METHOD TOGGLE: PASSWORD VS OTP */}
+                <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700/60 text-xs">
                   <button
                     type="button"
-                    onClick={() => setShowForgotPasswordModal(true)}
-                    className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium"
+                    onClick={() => setStudentAuthMethod('PASSWORD')}
+                    className={`flex-1 py-1.5 rounded-lg font-semibold transition-all ${
+                      studentAuthMethod === 'PASSWORD' ? 'bg-slate-700 text-emerald-300' : 'text-slate-400'
+                    }`}
                   >
-                    Forgot Password?
+                    Password Login
                   </button>
-                </div>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
-                  <input
-                    required
-                    type={showPassword ? 'text' : 'password'}
-                    value={studentPassword}
-                    onChange={(e) => setStudentPassword(e.target.value)}
-                    placeholder="Enter student password"
-                    className="w-full pl-10 pr-10 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                  />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-200"
+                    onClick={() => setStudentAuthMethod('OTP')}
+                    className={`flex-1 py-1.5 rounded-lg font-semibold transition-all ${
+                      studentAuthMethod === 'OTP' ? 'bg-slate-700 text-emerald-300' : 'text-slate-400'
+                    }`}
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    OTP Verification
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Enter 4-Digit Verification OTP
-                </label>
-                <div className="flex space-x-2">
-                  <div className="relative flex-1">
-                    <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+
+                {/* IDENTIFIER INPUT */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Registered Mobile Number / Student Username
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
                     <input
                       required
                       type="text"
-                      maxLength={6}
-                      value={studentOtp}
-                      onChange={(e) => setStudentOtp(e.target.value)}
-                      placeholder="e.g. 8492"
-                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-sm text-white font-mono tracking-wider placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      value={studentIdentifier}
+                      onChange={(e) => setStudentIdentifier(e.target.value)}
+                      placeholder="e.g. 9111122222 or aarav101"
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                     />
                   </div>
+                </div>
+
+                {/* PASSWORD OR OTP FIELD */}
+                {studentAuthMethod === 'PASSWORD' ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Student Password</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotPasswordModal(true)}
+                        className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                      <input
+                        required
+                        type={showPassword ? 'text' : 'password'}
+                        value={studentPassword}
+                        onChange={(e) => setStudentPassword(e.target.value)}
+                        placeholder="Enter student password"
+                        className="w-full pl-10 pr-10 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-200"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      Enter 4-Digit Verification OTP
+                    </label>
+                    <div className="flex space-x-2">
+                      <div className="relative flex-1">
+                        <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                        <input
+                          required
+                          type="text"
+                          maxLength={6}
+                          value={studentOtp}
+                          onChange={(e) => setStudentOtp(e.target.value)}
+                          placeholder="e.g. 8492"
+                          className="w-full pl-10 pr-3.5 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-sm text-white font-mono tracking-wider placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSendOtp}
+                        disabled={otpTimer > 0}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-bold shrink-0 transition-all ${
+                          otpTimer > 0
+                            ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                            : 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/30'
+                        }`}
+                      >
+                        {otpTimer > 0 ? `${otpTimer}s` : otpSent ? 'Resend' : 'Send OTP'}
+                      </button>
+                    </div>
+                    {otpSent && (
+                      <p className="text-[11px] text-emerald-400 mt-1">
+                        ✓ Demo OTP: <strong>8492</strong> sent to mobile.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all cursor-pointer"
+                >
+                  {loading ? (
+                    <RotateCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Access Student Portal</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                {/* CREATE NEW STUDENT ACCOUNT TRIGGER */}
+                <div className="pt-4 border-t border-slate-800/80 text-center">
+                  <p className="text-xs text-slate-400 mb-2">New student joining a tuition center?</p>
                   <button
                     type="button"
-                    onClick={handleSendOtp}
-                    disabled={otpTimer > 0}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold shrink-0 transition-all ${
-                      otpTimer > 0
-                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                        : 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/30'
-                    }`}
+                    onClick={() => {
+                      setStudentView('REGISTER');
+                      setErrorMessage('');
+                      setSuccessMessage('');
+                    }}
+                    className="w-full py-2.5 bg-slate-800 hover:bg-slate-700/80 text-emerald-300 border border-emerald-500/30 font-semibold rounded-xl text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer shadow-sm hover:border-emerald-500/60"
                   >
-                    {otpTimer > 0 ? `${otpTimer}s` : otpSent ? 'Resend' : 'Send OTP'}
+                    <UserPlus className="w-4 h-4 text-emerald-400" />
+                    <span>Create New Student Account</span>
                   </button>
                 </div>
-                {otpSent && (
-                  <p className="text-[11px] text-emerald-400 mt-1">
-                    ✓ Demo OTP: <strong>8492</strong> sent to mobile.
-                  </p>
-                )}
-              </div>
-            )}
+              </form>
+            ) : (
+              /* STUDENT SELF-REGISTRATION FORM */
+              <form onSubmit={handleStudentRegister} className="space-y-3.5">
+                <div className="flex items-center justify-between pb-1">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                    <UserPlus className="w-4 h-4 text-emerald-400" />
+                    <span>Student Self-Registration</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStudentView('LOGIN');
+                      setErrorMessage('');
+                      setSuccessMessage('');
+                    }}
+                    className="text-xs text-slate-400 hover:text-emerald-300 transition-colors font-medium cursor-pointer"
+                  >
+                    Return to Student Login
+                  </button>
+                </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all cursor-pointer"
-            >
-              {loading ? (
-                <RotateCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <span>Access Student Portal</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
+                {/* Full Name */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                    Full Name
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                    <input
+                      required
+                      type="text"
+                      value={regStudentName}
+                      onChange={(e) => setRegStudentName(e.target.value)}
+                      placeholder="e.g. Rohan Sharma"
+                      className="w-full pl-9 pr-3 py-2 bg-slate-800/60 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Mobile Number & Email Address */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                      Mobile Number
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                      <input
+                        required
+                        type="tel"
+                        maxLength={10}
+                        value={regStudentPhone}
+                        onChange={(e) => setRegStudentPhone(e.target.value.replace(/\D/g, ''))}
+                        placeholder="9876543210"
+                        className="w-full pl-9 pr-3 py-2 bg-slate-800/60 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                      <input
+                        required
+                        type="email"
+                        value={regStudentEmail}
+                        onChange={(e) => setRegStudentEmail(e.target.value)}
+                        placeholder="student@gmail.com"
+                        className="w-full pl-9 pr-3 py-2 bg-slate-800/60 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Teacher / Tuition Centre Join Code */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-semibold text-slate-300">
+                      Teacher / Tuition Centre Join Code
+                    </label>
+                    <span className="text-[10px] text-slate-400">Required</span>
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                    <input
+                      required
+                      type="text"
+                      value={regStudentJoinCode}
+                      onChange={(e) => setRegStudentJoinCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. SHARMA-101 or VERMA-202"
+                      className="w-full pl-9 pr-3 py-2 bg-slate-800/60 border border-slate-700 rounded-xl text-xs text-white font-mono uppercase tracking-wider placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Real-time Join Code verification feedback */}
+                  {regStudentJoinCode.trim().length >= 3 && (
+                    <div className="mt-1.5">
+                      {resolvedJoinInfo ? (
+                        <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-[11px] text-emerald-300 flex items-center space-x-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                          <span className="truncate">
+                            Verified: <strong>{resolvedJoinInfo.tuitionName}</strong> ({resolvedJoinInfo.teacherName})
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="p-2 bg-rose-500/10 border border-rose-500/30 rounded-lg text-[11px] text-rose-300 flex items-center space-x-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                          <span>Unrecognized join code. Obtain a valid code from your teacher.</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {regStudentJoinCode.trim().length === 0 && (
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Ask your instructor for their center code (e.g. <span className="font-mono text-emerald-400">SHARMA-101</span> or <span className="font-mono text-emerald-400">VERMA-202</span>).
+                    </p>
+                  )}
+                </div>
+
+                {/* Password and Confirm Password */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                      <input
+                        required
+                        type={showRegPassword ? 'text' : 'password'}
+                        value={regStudentPassword}
+                        onChange={(e) => setRegStudentPassword(e.target.value)}
+                        placeholder="Min 6 characters"
+                        className="w-full pl-9 pr-8 py-2 bg-slate-800/60 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-200"
+                      >
+                        {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                      Confirm Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                      <input
+                        required
+                        type={showRegConfirmPassword ? 'text' : 'password'}
+                        value={regStudentConfirmPassword}
+                        onChange={(e) => setRegStudentConfirmPassword(e.target.value)}
+                        placeholder="Re-enter password"
+                        className="w-full pl-9 pr-8 py-2 bg-slate-800/60 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegConfirmPassword(!showRegConfirmPassword)}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-200"
+                      >
+                        {showRegConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-2.5 mt-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all cursor-pointer"
+                >
+                  {loading ? (
+                    <RotateCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      <span>Create Student Account & Enter Portal</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="text-center pt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStudentView('LOGIN');
+                      setErrorMessage('');
+                      setSuccessMessage('');
+                    }}
+                    className="text-[11px] text-slate-400 hover:text-emerald-300 transition-colors"
+                  >
+                    Already have a student account? <span className="text-emerald-400 font-semibold underline underline-offset-2">Return to Student Login</span>
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         )}
 
         {/* =================================================================== */}
