@@ -159,6 +159,5 @@ async function startServer() {
   }
 }
 
-startServer();
-
+export const serverReady = startServer();
 export default app;

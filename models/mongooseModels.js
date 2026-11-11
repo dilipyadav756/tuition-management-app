@@ -91,3 +91,4 @@ export default {
   BatchModel,
   PaymentModel
 };
+
