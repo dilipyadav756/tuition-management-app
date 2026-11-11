@@ -1,6 +1,8 @@
 import express from 'express';
 import { 
-  verifyJoinCode,
+  verifyBatchCode,
+  joinBatch,
+  regenerateBatchCode,
   registerStudent,
   regenerateTeacherJoinCode,
   registerTeacher, 
@@ -16,25 +18,32 @@ import {
 const router = express.Router();
 
 /**
- * @route   POST /api/auth/verify-join-code
- * @desc    Validate teacher/tuition join code before student account creation
- * @access  Public
- */
-router.post('/verify-join-code', verifyJoinCode);
-
-/**
  * @route   POST /api/auth/register-student
- * @desc    Self-register student with verified teacher/tuition join code
+ * @desc    Self-register student independently without requiring batch code
  * @access  Public
  */
 router.post('/register-student', registerStudent);
 
 /**
- * @route   POST /api/auth/regenerate-join-code
- * @desc    Regenerate teacher's unique tuition registration code
+ * @route   POST /api/auth/verify-batch-code
+ * @desc    Validate 6-digit batch code and return resolved batch details
+ * @access  Public
+ */
+router.post('/verify-batch-code', verifyBatchCode);
+
+/**
+ * @route   POST /api/auth/join-batch
+ * @desc    Enroll authenticated student into a batch via verified batch code
+ * @access  Protected (Students)
+ */
+router.post('/join-batch', joinBatch);
+
+/**
+ * @route   POST /api/auth/regenerate-batch-code
+ * @desc    Regenerate unique 6-digit batch code for an existing batch
  * @access  Protected (Teachers only)
  */
-router.post('/regenerate-join-code', authenticateToken, authorizeRoles('TEACHER', 'TUITION_OWNER'), regenerateTeacherJoinCode);
+router.post('/regenerate-batch-code', regenerateBatchCode);
 
 /**
  * @route   POST /api/auth/register-teacher

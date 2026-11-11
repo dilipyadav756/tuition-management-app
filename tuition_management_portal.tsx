@@ -1249,6 +1249,214 @@ export default function App({
     return batches.find(b => b.joinCode.toUpperCase() === trimmed) || null;
   }, [inputJoinCode, batches]);
 
+  // Teacher of detected batch
+  const detectedBatchTeacher = useMemo(() => {
+    if (!detectedBatch) return null;
+    return teachers.find(t => t.id === detectedBatch.teacherId) || null;
+  }, [detectedBatch, teachers]);
+
+  // List of all batches joined by the current student (supports multiple batch enrollments)
+  const studentJoinedBatches = useMemo(() => {
+    if (!currentUser || (currentUser.role !== 'STUDENT' && currentUser.role !== 'student')) {
+      return [];
+    }
+    const cleanUserPhone = (currentUser.phone || '').replace(/\D/g, '').slice(-10);
+
+    const studentRecords = students.filter(s => 
+      s.id === currentUser.id || 
+      (cleanUserPhone && s.phone && s.phone.replace(/\D/g, '').slice(-10) === cleanUserPhone)
+    );
+
+    const result: Array<{
+      batch: Batch;
+      teacher: Teacher;
+      studentRecord: Student;
+    }> = [];
+
+    studentRecords.forEach(sr => {
+      if (sr.batch && sr.batch !== 'No Enrolled Batch' && sr.batch !== 'Unassigned') {
+        const b = batches.find(batch => batch.name === sr.batch && (batch.teacherId === sr.teacherId || !sr.teacherId));
+        if (b && !result.some(item => item.batch.id === b.id)) {
+          const t = teachers.find(teacher => teacher.id === b.teacherId) || {
+            id: b.teacherId,
+            name: 'Tuition Faculty',
+            subject: b.subject,
+            email: '',
+            phone: ''
+          };
+          result.push({ batch: b, teacher: t, studentRecord: sr });
+        }
+      }
+    });
+
+    if (currentUser.enrolledBatches && Array.isArray(currentUser.enrolledBatches)) {
+      currentUser.enrolledBatches.forEach((eb: any) => {
+        const b = batches.find(batch => batch.id === eb.batchId || batch.joinCode === eb.joinCode || batch.name === eb.batchName);
+        if (b && !result.some(item => item.batch.id === b.id)) {
+          const t = teachers.find(teacher => teacher.id === b.teacherId) || {
+            id: b.teacherId,
+            name: eb.teacherName || 'Tuition Faculty',
+            subject: b.subject,
+            email: '',
+            phone: ''
+          };
+          result.push({
+            batch: b,
+            teacher: t,
+            studentRecord: {
+              id: currentUser.id,
+              teacherId: b.teacherId,
+              name: currentUser.name,
+              rollNo: eb.rollNo || '101',
+              batch: b.name,
+              phone: currentUser.phone || '',
+              feeStatus: 'Paid',
+              feeAmount: b.monthlyFee,
+              attendanceRate: 100
+            }
+          });
+        }
+      });
+    }
+
+    if (result.length === 0 && activeStudent.batch && activeStudent.batch !== 'No Enrolled Batch' && activeStudent.batch !== 'Unassigned') {
+      const fallbackBatch = batches.find(b => b.name === activeStudent.batch && b.teacherId === activeStudent.teacherId);
+      if (fallbackBatch) {
+        result.push({
+          batch: fallbackBatch,
+          teacher: activeTeacher,
+          studentRecord: activeStudent
+        });
+      }
+    }
+
+    return result;
+  }, [currentUser, students, batches, teachers, activeStudent, activeTeacher]);
+
+  // Check if student is already enrolled in detectedBatch (duplicate joining prevention)
+  const isAlreadyEnrolledInDetectedBatch = useMemo(() => {
+    if (!detectedBatch) return false;
+    return studentJoinedBatches.some(jb => jb.batch.id === detectedBatch.id);
+  }, [detectedBatch, studentJoinedBatches]);
+
+  // Securely regenerate unique 6-digit batch code for teachers
+  const handleRegenerateBatchCode = (batchId: string) => {
+    const newCode = String(Math.floor(100000 + Math.random() * 900000));
+    const updatedBatches = batches.map(b => b.id === batchId ? { ...b, joinCode: newCode } : b);
+    setBatches(updatedBatches);
+    try {
+      localStorage.setItem('tm_batches', JSON.stringify(updatedBatches));
+    } catch {}
+    const bName = batches.find(b => b.id === batchId)?.name || 'Batch';
+    showToast(`Batch code for "${bName}" successfully regenerated to: ${newCode}`);
+  };
+
+  // Student directly joins verified batch
+  const handleConfirmJoinBatch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!detectedBatch) {
+      showToast('Please enter a valid 6-digit batch join code.');
+      return;
+    }
+    if (isAlreadyEnrolledInDetectedBatch) {
+      showToast(`You have already joined "${detectedBatch.name}". Duplicate joining is not allowed.`);
+      return;
+    }
+
+    const teacher = teachers.find(t => t.id === detectedBatch.teacherId);
+    const studentName = currentUser?.name || activeStudent?.name || 'Enrolled Student';
+    const studentPhone = currentUser?.phone || activeStudent?.phone || '9876543210';
+    const newRollNo = `S-${Math.floor(100 + Math.random() * 900)}`;
+
+    const newStudentRecord: Student = {
+      id: currentUser?.id || `s_${Date.now()}`,
+      teacherId: detectedBatch.teacherId,
+      name: studentName,
+      rollNo: newRollNo,
+      batch: detectedBatch.name,
+      phone: studentPhone,
+      parentPhone: currentUser?.parentPhone || '',
+      feeStatus: 'Pending',
+      feeAmount: detectedBatch.monthlyFee || 2500,
+      attendanceRate: 100
+    };
+
+    // 1. Add student record to students state & localStorage
+    setStudents(prev => {
+      const updated = [...prev, newStudentRecord];
+      try {
+        localStorage.setItem('tm_students', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    // 2. Update currentUser session in state and localStorage
+    const newEnrollment = {
+      batchId: detectedBatch.id,
+      batchName: detectedBatch.name,
+      subject: detectedBatch.subject,
+      monthlyFee: detectedBatch.monthlyFee,
+      schedule: detectedBatch.schedule,
+      joinCode: detectedBatch.joinCode,
+      teacherId: detectedBatch.teacherId,
+      teacherName: teacher?.name || 'Tuition Faculty',
+      tuitionId: detectedBatch.teacherId,
+      tuitionName: teacher?.subject || teacher?.name || 'Tuition Academy',
+      rollNo: newRollNo,
+      enrolledAt: new Date().toISOString()
+    };
+
+    const updatedBatches = Array.isArray(currentUser?.enrolledBatches) 
+      ? [...currentUser.enrolledBatches, newEnrollment]
+      : [newEnrollment];
+
+    const updatedUser = {
+      ...(currentUser || {}),
+      id: currentUser?.id || newStudentRecord.id,
+      name: studentName,
+      phone: studentPhone,
+      role: 'STUDENT',
+      tuitionId: detectedBatch.teacherId,
+      tuitionName: teacher?.subject || teacher?.name || 'Tuition Academy',
+      batch: detectedBatch.name,
+      rollNo: newRollNo,
+      enrolledBatches: updatedBatches
+    };
+
+    try {
+      localStorage.setItem('tm_auth_user', JSON.stringify(updatedUser));
+      const rawReg = localStorage.getItem('tm_registered_students');
+      if (rawReg) {
+        const regList = JSON.parse(rawReg);
+        const updatedRegList = regList.map((rs: any) => {
+          if (rs.id === updatedUser.id || (rs.phone && rs.phone === studentPhone)) {
+            return {
+              ...rs,
+              tuitionId: detectedBatch.teacherId,
+              tuitionName: teacher?.subject || teacher?.name,
+              batch: detectedBatch.name,
+              rollNo: newRollNo,
+              enrolledBatches: updatedBatches
+            };
+          }
+          return rs;
+        });
+        localStorage.setItem('tm_registered_students', JSON.stringify(updatedRegList));
+      }
+    } catch {}
+
+    // Switch active teacher to the batch's teacher so coursework, notes, tests immediately reflect
+    setCurrentTeacherId(detectedBatch.teacherId);
+
+    if (onUserUpdate) {
+      onUserUpdate(updatedUser);
+    }
+
+    showToast(`Successfully enrolled in "${detectedBatch.name}" (${teacher ? teacher.name : 'Tuition Hub'})!`);
+    setShowJoinBatchModal(false);
+    setInputJoinCode('');
+  };
+
   // When switching student, automatically sync currentTeacherId to the student's teacher
   const handleSelectStudent = (studentId: string) => {
     setCurrentStudentId(studentId);
@@ -2656,69 +2864,6 @@ export default function App({
                 )}
               </div>
 
-              {/* DEDICATED STUDENT REGISTRATION JOIN CODE SECTION (TEACHER DASHBOARD) */}
-              {currentRole === 'teacher' && (
-                <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white p-6 rounded-2xl border border-indigo-800/40 shadow-xl space-y-4 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-                    <div className="space-y-1.5">
-                      <div className="inline-flex items-center space-x-2 bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide">
-                        <Key className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>Tuition Self-Registration System</span>
-                      </div>
-                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                        <span>Student Registration Join Code</span>
-                        <span className="text-[11px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
-                          ● Active Code
-                        </span>
-                      </h3>
-                      <p className="text-xs text-slate-300 max-w-xl">
-                        Share this unique registration code with prospective students. Students must enter this code during self-registration to securely enroll into <strong>{activeTeacher.subject || activeTeacher.name}</strong>.
-                      </p>
-                    </div>
-
-                    {/* Join Code Display and Actions */}
-                    <div className="flex flex-wrap items-center gap-2.5 bg-slate-900/90 border border-slate-700/80 p-2.5 rounded-xl shadow-inner">
-                      <div className="px-3.5 py-1.5 bg-slate-950 rounded-lg border border-indigo-500/40">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Registration Code</span>
-                        <span className="font-mono text-xl font-extrabold text-indigo-400 tracking-wider">
-                          {teacherRegistrationCode}
-                        </span>
-                      </div>
-
-                      <button
-                        onClick={() => handleCopyCode(teacherRegistrationCode)}
-                        className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer"
-                        title="Copy Registration Join Code"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Code</span>
-                      </button>
-
-                      <button
-                        onClick={handleRegenerateJoinCode}
-                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-850 text-indigo-200 border border-indigo-500/30 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer"
-                        title="Generate a new registration join code"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>Regenerate Code</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-[11px] text-slate-400 gap-2 relative z-10">
-                    <div className="flex items-center space-x-1.5">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>Security Protection: Students without this verified code cannot create accounts or join your tuition center.</span>
-                    </div>
-                    <div className="text-slate-400">
-                      Default batch for newly registered students: <strong className="text-slate-200">{teacherBatchesList[0]?.name || 'Foundation Batch'}</strong>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* BATCH JOIN CODES SHOWCASE CARD (TEACHER VIEW) */}
               {currentRole === 'teacher' && (
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -2728,13 +2873,13 @@ export default function App({
                         <Key className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-900 text-base">Your Active Batches & 6-Digit Join Codes</h3>
-                        <p className="text-xs text-slate-500">Students enter these codes in their portal to request enrollment</p>
+                        <h3 className="font-bold text-slate-900 text-base">Your Active Batches & Unique Batch Codes</h3>
+                        <p className="text-xs text-slate-500">Each batch has its own unique 6-digit code. Share with students so they can join.</p>
                       </div>
                     </div>
                     <button
                       onClick={() => setShowCreateBatchModal(true)}
-                      className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1.5 transition-colors self-start sm:self-auto"
+                      className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1.5 transition-colors self-start sm:self-auto cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>New Batch</span>
@@ -2742,89 +2887,193 @@ export default function App({
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {teacherBatchesList.map(b => (
-                      <div key={b.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between space-y-3 hover:border-indigo-300 transition-all">
-                        <div>
-                          <div className="flex justify-between items-start">
-                            <span className="text-[11px] font-bold text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                              {b.subject}
-                            </span>
-                            <span className="text-xs font-semibold text-slate-700">₹{b.monthlyFee}/mo</span>
-                          </div>
-                          <h4 className="font-bold text-slate-900 text-base mt-2">{b.name}</h4>
-                          <p className="text-xs text-slate-500 mt-1">{b.schedule}</p>
-                        </div>
-
-                        {/* 6-DIGIT CODE PILL */}
-                        <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between">
+                    {teacherBatchesList.map(b => {
+                      const batchStudents = students.filter(s => s.teacherId === b.teacherId && s.batch === b.name);
+                      return (
+                        <div key={b.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between space-y-3 hover:border-indigo-300 transition-all">
                           <div>
-                            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Student Join Code</span>
-                            <span className="font-mono text-lg font-extrabold text-indigo-700 tracking-wider">
-                              {b.joinCode}
-                            </span>
+                            <div className="flex justify-between items-start">
+                              <span className="text-[11px] font-bold text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                                {b.subject}
+                              </span>
+                              <span className="text-xs font-semibold text-slate-700">₹{b.monthlyFee}/mo</span>
+                            </div>
+                            <h4 className="font-bold text-slate-900 text-base mt-2">{b.name}</h4>
+                            <p className="text-xs text-slate-500 mt-1">{b.schedule}</p>
                           </div>
-                          <button
-                            onClick={() => handleCopyCode(b.joinCode)}
-                            className="text-xs bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-300 hover:border-indigo-200 px-3 py-1.5 rounded-lg font-bold flex items-center space-x-1 shadow-sm transition-all"
-                            title="Copy 6-digit code"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                            <span>Copy Code</span>
-                          </button>
+
+                          {/* 6-DIGIT CODE PILL WITH COPY AND REGENERATE */}
+                          <div className="pt-2 border-t border-slate-200/80 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Batch Join Code</span>
+                                <span className="font-mono text-lg font-extrabold text-indigo-700 tracking-wider">
+                                  {b.joinCode}
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-1.5">
+                                <button
+                                  onClick={() => handleCopyCode(b.joinCode)}
+                                  className="text-xs bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-300 hover:border-indigo-200 px-2.5 py-1.5 rounded-lg font-bold flex items-center space-x-1 shadow-sm transition-all cursor-pointer"
+                                  title="Copy 6-digit batch code"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>Copy</span>
+                                </button>
+                                <button
+                                  onClick={() => handleRegenerateBatchCode(b.id)}
+                                  className="text-xs bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-300 px-2 py-1.5 rounded-lg font-bold flex items-center space-x-1 shadow-sm transition-all cursor-pointer"
+                                  title="Regenerate unique batch code"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                  <span>Regenerate</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* VIEW STUDENTS WHO JOINED THIS BATCH */}
+                            <div className="pt-2 border-t border-slate-200/60">
+                              <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
+                                <span className="font-bold flex items-center gap-1.5">
+                                  <Users className="w-3.5 h-3.5 text-indigo-600" />
+                                  <span>Enrolled Students</span>
+                                </span>
+                                <span className="font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px]">
+                                  {batchStudents.length} student{batchStudents.length === 1 ? '' : 's'}
+                                </span>
+                              </div>
+                              {batchStudents.length > 0 ? (
+                                <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                                  {batchStudents.map(st => (
+                                    <div key={st.id} className="text-[11px] bg-white p-1.5 rounded-lg border border-slate-200 flex items-center justify-between">
+                                      <div className="truncate">
+                                        <span className="font-bold text-slate-800">{st.name}</span>
+                                        <span className="text-[10px] text-slate-400 ml-1.5">#{st.rollNo}</span>
+                                      </div>
+                                      <span className="text-[10px] text-slate-500 font-mono">{st.phone}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-slate-400 italic">No students joined this batch yet.</p>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* STRICT RBAC: STUDENT ENROLLED BATCH & INSTRUCTOR CARD */}
+              {/* STRICT RBAC: STUDENT ENROLLED BATCH & INSTRUCTOR CARD (SUPPORTS MULTIPLE BATCHES) */}
               {currentRole === 'student' && (
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
-                    <div className="flex items-center space-x-2.5">
-                      <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-                        <BookOpen className="w-5 h-5" />
+                <div className="space-y-4">
+                  {studentJoinedBatches.length === 0 ? (
+                    /* EMPTY STATE: NOT ENROLLED IN ANY BATCH YET */
+                    <div className="bg-gradient-to-br from-emerald-950/80 via-slate-900 to-slate-950 text-white p-8 rounded-2xl border-2 border-dashed border-emerald-500/40 shadow-xl text-center space-y-4 relative overflow-hidden">
+                      <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner">
+                        <Sparkles className="w-7 h-7" />
                       </div>
-                      <div>
-                        <h3 className="font-bold text-slate-900 text-base">Enrolled Tuition Batch</h3>
-                        <p className="text-xs text-slate-500">Your registered class and assigned faculty</p>
+                      <div className="space-y-1">
+                        <h3 className="text-xl font-bold text-white">Welcome, {currentUser?.name || activeStudent.name}!</h3>
+                        <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto">
+                          You haven't joined any tuition batch yet. Click <strong>Join New Batch</strong> below and enter the 6-digit Batch Code provided by your teacher.
+                        </p>
                       </div>
+                      <button
+                        onClick={() => {
+                          setInputJoinCode('');
+                          setShowJoinBatchModal(true);
+                        }}
+                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-lg shadow-emerald-600/30 inline-flex items-center space-x-2 transition-all cursor-pointer"
+                      >
+                        <Key className="w-4 h-4" />
+                        <span>Join New Batch</span>
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setShowJoinBatchModal(true)}
-                      className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1.5 transition-colors self-start sm:self-auto cursor-pointer"
-                    >
-                      <Key className="w-3.5 h-3.5" />
-                      <span>Join Another Batch</span>
-                    </button>
-                  </div>
+                  ) : (
+                    /* ENROLLED BATCHES DISPLAY (SUPPORTS MULTIPLE BATCHES) */
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                        <div className="flex items-center space-x-2.5">
+                          <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                            <BookOpen className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-slate-900 text-base">Enrolled Tuition Batches</h3>
+                              <span className="text-[11px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                                {studentJoinedBatches.length} {studentJoinedBatches.length === 1 ? 'Batch' : 'Batches'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500">Your registered classes and assigned faculty</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setInputJoinCode('');
+                            setShowJoinBatchModal(true);
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer"
+                        >
+                          <Key className="w-3.5 h-3.5" />
+                          <span>Join New Batch</span>
+                        </button>
+                      </div>
 
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                      <span className="text-[11px] font-bold text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                        {activeTeacher.subject}
-                      </span>
-                      <h4 className="font-bold text-slate-900 text-lg mt-1">{activeStudent.batch}</h4>
-                      <p className="text-xs text-slate-600 mt-1">
-                        Faculty: <strong>{activeTeacher.name}</strong> • Location: {activeTeacher.location || 'Sector 14, Gurugram Center'}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Schedule: {studentEnrolledBatch?.schedule || 'Mon, Wed, Fri (5:00 PM - 6:30 PM)'}
-                      </p>
-                    </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {studentJoinedBatches.map(item => {
+                          const isCurrentActive = currentTeacherId === item.batch.teacherId;
+                          return (
+                            <div 
+                              key={item.batch.id} 
+                              className={`p-4 rounded-xl border transition-all flex flex-col justify-between space-y-3 ${
+                                isCurrentActive 
+                                  ? 'bg-emerald-50/50 border-emerald-300 ring-1 ring-emerald-400/30' 
+                                  : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                              }`}
+                            >
+                              <div>
+                                <div className="flex justify-between items-start">
+                                  <span className="text-[11px] font-bold text-indigo-600 uppercase bg-white px-2 py-0.5 rounded border border-indigo-100">
+                                    {item.batch.subject}
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-700">₹{item.batch.monthlyFee}/mo</span>
+                                </div>
+                                <h4 className="font-bold text-slate-900 text-base mt-2">{item.batch.name}</h4>
+                                <p className="text-xs text-slate-600 mt-1">
+                                  Faculty: <strong>{item.teacher?.name || 'Instructor'}</strong> • {item.batch.schedule}
+                                </p>
+                              </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <div className="p-3 bg-white rounded-xl border border-slate-200 text-center min-w-28">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold block">My Roll No</span>
-                        <span className="font-bold text-slate-800 text-base block mt-0.5">#{activeStudent.rollNo}</span>
-                      </div>
-                      <div className="p-3 bg-white rounded-xl border border-slate-200 text-center min-w-28">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold block">Monthly Fee</span>
-                        <span className="font-bold text-indigo-700 text-base block mt-0.5">₹{activeStudent.feeAmount}</span>
+                              <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between">
+                                <span className="text-xs text-slate-500">
+                                  Roll No: <strong className="text-slate-800">#{item.studentRecord.rollNo}</strong>
+                                </span>
+                                {isCurrentActive ? (
+                                  <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    Active View
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      setCurrentTeacherId(item.batch.teacherId);
+                                      showToast(`Switched view to ${item.batch.name}`);
+                                    }}
+                                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-white border border-slate-200 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                                  >
+                                    View Coursework
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -4394,33 +4643,49 @@ export default function App({
       {/* STUDENT JOIN BATCH WITH 6-DIGIT CODE MODAL */}
       {showJoinBatchModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-slate-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-slate-200 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center space-x-2.5">
                 <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
                   <Key className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">Join Batch with Code</h3>
+                  <h3 className="text-lg font-bold text-slate-900">Join New Batch</h3>
                   <p className="text-xs text-slate-500">Enter the 6-digit code shared by your teacher</p>
                 </div>
               </div>
-              <button onClick={() => setShowJoinBatchModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button 
+                onClick={() => {
+                  setShowJoinBatchModal(false);
+                  setInputJoinCode('');
+                }} 
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleStudentJoinSubmit} className="space-y-4 text-sm">
+            <form onSubmit={handleConfirmJoinBatch} className="space-y-4 text-sm">
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700">6-Digit Batch Join Code</label>
-                  <button
-                    type="button"
-                    onClick={() => setInputJoinCode('849201')}
-                    className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold"
-                  >
-                    Try Sample: 849201
-                  </button>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-700">Enter Batch Code</label>
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-[10px] text-slate-400">Samples:</span>
+                    <button
+                      type="button"
+                      onClick={() => setInputJoinCode('849201')}
+                      className="text-[10px] bg-slate-100 hover:bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-mono font-bold cursor-pointer"
+                    >
+                      849201
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInputJoinCode('526318')}
+                      className="text-[10px] bg-slate-100 hover:bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-mono font-bold cursor-pointer"
+                    >
+                      526318
+                    </button>
+                  </div>
                 </div>
                 <input 
                   required 
@@ -4428,100 +4693,83 @@ export default function App({
                   maxLength={6}
                   value={inputJoinCode}
                   onChange={(e) => setInputJoinCode(e.target.value.toUpperCase())}
-                  className="w-full text-center text-2xl font-mono font-bold tracking-widest p-2.5 bg-slate-50 border-2 border-indigo-200 rounded-xl focus:border-indigo-600 focus:outline-none uppercase" 
+                  className="w-full text-center text-2xl font-mono font-extrabold tracking-widest p-2.5 bg-slate-50 border-2 border-indigo-200 rounded-xl focus:border-indigo-600 focus:outline-none uppercase" 
                   placeholder="849201" 
+                  autoFocus
                 />
               </div>
 
-              {/* LIVE DETECTED BATCH CARD */}
-              {detectedBatch ? (
-                <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 space-y-1">
+              {/* LIVE DETECTED BATCH VALIDATION CARD */}
+              {detectedBatch && !isAlreadyEnrolledInDetectedBatch && (
+                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 space-y-2 animate-in fade-in">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-800 flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      Verified Batch Found
+                    <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Verified Batch Ready to Join</span>
                     </span>
-                    <span className="text-xs font-bold text-emerald-700">₹{detectedBatch.monthlyFee}/mo</span>
+                    <span className="text-xs font-extrabold text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200">
+                      ₹{detectedBatch.monthlyFee}/mo
+                    </span>
                   </div>
-                  <p className="font-bold text-slate-900 text-sm">{detectedBatch.name}</p>
-                  <p className="text-xs text-slate-600">
-                    Instructor: {teachers.find(t => t.id === detectedBatch.teacherId)?.name} • {detectedBatch.schedule}
-                  </p>
+                  <div>
+                    <p className="font-bold text-slate-900 text-sm">{detectedBatch.name}</p>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Subject: <strong>{detectedBatch.subject}</strong>
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      Instructor: <strong>{detectedBatchTeacher?.name || 'Tuition Faculty'}</strong>
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      Tuition Centre: <strong>{detectedBatchTeacher?.subject || detectedBatchTeacher?.name || 'Tuition Academy'}</strong>
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Schedule: {detectedBatch.schedule}
+                    </p>
+                  </div>
                 </div>
-              ) : inputJoinCode.trim().length >= 4 ? (
+              )}
+
+              {/* DUPLICATE JOINING ERROR */}
+              {detectedBatch && isAlreadyEnrolledInDetectedBatch && (
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex items-start space-x-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Already Enrolled</p>
+                    <p>You have already joined <strong>{detectedBatch.name}</strong>. Duplicate joining is not allowed.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* INVALID BATCH CODE ERROR */}
+              {!detectedBatch && inputJoinCode.trim().length >= 4 && (
                 <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-700 flex items-center space-x-2">
                   <XCircle className="w-4 h-4 shrink-0" />
-                  <span>No batch found with this code. Check the code provided by your teacher.</span>
+                  <span>Invalid, inactive or unavailable batch code. Please check with your teacher.</span>
                 </div>
-              ) : null}
-
-              {/* STUDENT CREDENTIALS */}
-              <div className="space-y-3 pt-1">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Your Full Name</label>
-                  <input 
-                    required 
-                    type="text" 
-                    value={joinStudentName}
-                    onChange={(e) => setJoinStudentName(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
-                    placeholder="e.g. Vikram Malhotra" 
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Mobile Contact</label>
-                    <input 
-                      required 
-                      type="text" 
-                      value={joinStudentPhone}
-                      onChange={(e) => setJoinStudentPhone(e.target.value)}
-                      className="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-xs" 
-                      placeholder="+91 98765 00000" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Parent WhatsApp</label>
-                    <input 
-                      type="text" 
-                      value={joinParentPhone}
-                      onChange={(e) => setJoinParentPhone(e.target.value)}
-                      className="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-xs" 
-                      placeholder="+91 98765 00001 (Optional)" 
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Roll / Ref No (Optional)</label>
-                  <input 
-                    type="text" 
-                    value={joinStudentRoll}
-                    onChange={(e) => setJoinStudentRoll(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-xs" 
-                    placeholder="e.g. 107" 
-                  />
-                </div>
-              </div>
+              )}
 
               <div className="flex justify-end space-x-2 pt-3 border-t">
                 <button 
                   type="button" 
-                  onClick={() => setShowJoinBatchModal(false)} 
-                  className="px-4 py-2 border rounded-xl text-slate-600 hover:bg-slate-50 font-semibold"
+                  onClick={() => {
+                    setShowJoinBatchModal(false);
+                    setInputJoinCode('');
+                  }} 
+                  className="px-4 py-2 border rounded-xl text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  disabled={!detectedBatch}
-                  className={`px-5 py-2 rounded-xl font-bold shadow-sm flex items-center space-x-1.5 ${
-                    detectedBatch 
-                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer' 
+                  disabled={!detectedBatch || isAlreadyEnrolledInDetectedBatch}
+                  className={`px-5 py-2 rounded-xl font-bold shadow-sm flex items-center space-x-1.5 transition-all ${
+                    detectedBatch && !isAlreadyEnrolledInDetectedBatch
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-emerald-600/20' 
                       : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   }`}
                 >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Send Join Request</span>
+                  <Key className="w-4 h-4" />
+                  <span>Verify & Join Batch</span>
                 </button>
               </div>
             </form>

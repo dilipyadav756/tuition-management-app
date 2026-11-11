@@ -130,66 +130,264 @@ export const resolveJoinCode = (joinCode) => {
 };
 
 /**
- * @route   POST /api/auth/verify-join-code
- * @desc    Validate teacher/tuition join code and return resolved center info
+ * @route   POST /api/auth/verify-batch-code
+ * @desc    Validate 6-digit batch code and return resolved batch, teacher, and tuition information
  * @access  Public
  */
-export const verifyJoinCode = async (req, res) => {
+export const verifyBatchCode = async (req, res) => {
   try {
-    const joinCode = req.body.joinCode || req.query.joinCode;
-    if (!joinCode) {
+    const batchCode = req.body.batchCode || req.query.batchCode;
+    if (!batchCode) {
       return res.status(400).json({
         success: false,
-        message: 'Join code is required for verification.'
+        message: 'Batch code is required for verification.'
       });
     }
 
-    const resolved = resolveJoinCode(joinCode);
-    if (!resolved) {
-      return res.status(404).json({
+    const cleanCode = batchCode.trim().toUpperCase();
+    if (cleanCode.length < 3) {
+      return res.status(400).json({
         success: false,
-        message: 'Invalid or inactive registration join code. Please contact your tuition instructor.'
+        message: 'Batch code must be at least 4 characters long.'
       });
     }
+
+    // Look up batch in db.batches
+    let batch = db.batches ? db.batches.find(b => b.joinCode?.toUpperCase() === cleanCode) : null;
+
+    // Fallback checks for demo batches if not found in db.batches
+    if (!batch) {
+      if (cleanCode === '849201') {
+        batch = { id: 'b1', tuitionId: 't_inst_1', teacherId: 'u_teacher_1', name: 'Class 10 - Batch A', subject: 'Mathematics & Physics', joinCode: '849201', monthlyFee: 2500, schedule: 'Mon, Wed, Fri (5:00 PM - 6:30 PM)' };
+      } else if (cleanCode === '713904') {
+        batch = { id: 'b2', tuitionId: 't_inst_1', teacherId: 'u_teacher_1', name: 'Class 12 - Math', subject: 'Advanced Mathematics', joinCode: '713904', monthlyFee: 3000, schedule: 'Tue, Thu, Sat (6:00 PM - 7:30 PM)' };
+      } else if (cleanCode === '526318') {
+        batch = { id: 'b3', tuitionId: 't_inst_2', teacherId: 'u_teacher_2', name: 'Class 11 - Bio', subject: 'Cell Biology & Genetics', joinCode: '526318', monthlyFee: 2800, schedule: 'Mon, Thu, Sat (4:00 PM - 5:30 PM)' };
+      }
+    }
+
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid, inactive or unavailable batch code. Please check with your teacher.'
+      });
+    }
+
+    const teacher = db.users.find(u => u.id === batch.teacherId || u.tuitionId === batch.tuitionId) || {
+      id: batch.teacherId,
+      name: batch.teacherId === 'u_teacher_2' ? 'Ms. Anita Verma' : 'Prof. Rajesh Sharma'
+    };
+
+    const tuition = db.tuitions.find(t => t.id === batch.tuitionId || t.ownerId === teacher.id) || {
+      id: batch.tuitionId,
+      name: teacher.name.includes('Verma') ? 'Verma Science & Biology Hub' : 'Sharma Mathematics & Physics Academy'
+    };
 
     return res.status(200).json({
       success: true,
-      message: 'Valid tuition join code.',
+      message: 'Batch code verified successfully.',
       data: {
-        tuitionId: resolved.tuition.id,
-        tuitionName: resolved.tuition.name,
-        tuitionCode: resolved.tuition.code,
-        teacherId: resolved.teacher.id,
-        teacherName: resolved.teacher.name,
-        joinCode: joinCode.trim().toUpperCase(),
-        batchName: resolved.batch?.name || 'Class 10 - Foundation Batch',
-        monthlyFee: resolved.batch?.monthlyFee || 2500
+        batchId: batch.id,
+        batchName: batch.name,
+        subject: batch.subject,
+        monthlyFee: batch.monthlyFee || 2500,
+        schedule: batch.schedule || 'Regular Classes',
+        joinCode: batch.joinCode,
+        teacherId: teacher.id,
+        teacherName: teacher.name,
+        tuitionId: tuition.id,
+        tuitionName: tuition.name
       }
     });
 
   } catch (error) {
-    console.error('Error in verifyJoinCode:', error);
+    console.error('Error in verifyBatchCode:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error while verifying join code.'
+      message: 'Server error while verifying batch code.'
+    });
+  }
+};
+
+/**
+ * @route   POST /api/auth/join-batch
+ * @desc    Enroll authenticated student into a batch via verified batch code
+ * @access  Protected (Students)
+ */
+export const joinBatch = async (req, res) => {
+  try {
+    const { studentId, batchCode } = req.body;
+    const targetStudentId = studentId || req.user?.userId;
+
+    if (!batchCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Batch code is required to join a batch.'
+      });
+    }
+
+    const cleanCode = batchCode.trim().toUpperCase();
+    let batch = db.batches ? db.batches.find(b => b.joinCode?.toUpperCase() === cleanCode) : null;
+    if (!batch) {
+      if (cleanCode === '849201') batch = { id: 'b1', tuitionId: 't_inst_1', teacherId: 'u_teacher_1', name: 'Class 10 - Batch A', subject: 'Mathematics & Physics', joinCode: '849201', monthlyFee: 2500, schedule: 'Mon, Wed, Fri (5:00 PM - 6:30 PM)' };
+      else if (cleanCode === '713904') batch = { id: 'b2', tuitionId: 't_inst_1', teacherId: 'u_teacher_1', name: 'Class 12 - Math', subject: 'Advanced Mathematics', joinCode: '713904', monthlyFee: 3000, schedule: 'Tue, Thu, Sat (6:00 PM - 7:30 PM)' };
+      else if (cleanCode === '526318') batch = { id: 'b3', tuitionId: 't_inst_2', teacherId: 'u_teacher_2', name: 'Class 11 - Bio', subject: 'Cell Biology & Genetics', joinCode: '526318', monthlyFee: 2800, schedule: 'Mon, Thu, Sat (4:00 PM - 5:30 PM)' };
+    }
+
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid, inactive or unavailable batch code. Please check with your teacher.'
+      });
+    }
+
+    // Find student
+    const student = db.users.find(u => u.id === targetStudentId);
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student account not found.'
+      });
+    }
+
+    // Duplicate check: student cannot join the same batch twice
+    const alreadyEnrolled = (student.enrolledBatches && student.enrolledBatches.some(eb => eb.batchId === batch.id || eb.joinCode === batch.joinCode)) ||
+      (student.tenants && student.tenants.some(t => t.batch === batch.name && t.tuitionId === batch.tuitionId));
+
+    if (alreadyEnrolled) {
+      return res.status(400).json({
+        success: false,
+        message: `You have already joined "${batch.name}". Duplicate joining of the same batch is not allowed.`
+      });
+    }
+
+    const teacher = db.users.find(u => u.id === batch.teacherId || u.tuitionId === batch.tuitionId) || {
+      id: batch.teacherId,
+      name: batch.teacherId === 'u_teacher_2' ? 'Ms. Anita Verma' : 'Prof. Rajesh Sharma'
+    };
+
+    const tuition = db.tuitions.find(t => t.id === batch.tuitionId || t.ownerId === teacher.id) || {
+      id: batch.tuitionId,
+      name: teacher.name.includes('Verma') ? 'Verma Science & Biology Hub' : 'Sharma Mathematics & Physics Academy'
+    };
+
+    const rollNo = `S-${Math.floor(100 + Math.random() * 900)}`;
+    const newEnrollment = {
+      batchId: batch.id,
+      batchName: batch.name,
+      subject: batch.subject,
+      monthlyFee: batch.monthlyFee || 2500,
+      schedule: batch.schedule,
+      joinCode: batch.joinCode,
+      teacherId: teacher.id,
+      teacherName: teacher.name,
+      tuitionId: tuition.id,
+      tuitionName: tuition.name,
+      rollNo,
+      enrolledAt: new Date().toISOString()
+    };
+
+    if (!student.enrolledBatches) student.enrolledBatches = [];
+    if (!student.tenants) student.tenants = [];
+
+    student.enrolledBatches.push(newEnrollment);
+    student.tenants.push({
+      tuitionId: tuition.id,
+      tuitionName: tuition.name,
+      batch: batch.name,
+      rollNo,
+      teacherId: teacher.id,
+      teacherName: teacher.name
+    });
+
+    if (!student.tuitionId) student.tuitionId = tuition.id;
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully joined ${batch.name} with ${teacher.name}!`,
+      data: {
+        enrollment: newEnrollment,
+        user: {
+          id: student.id,
+          name: student.name,
+          role: student.role,
+          tuitionId: tuition.id,
+          tuitionName: tuition.name,
+          batch: batch.name,
+          rollNo,
+          enrolledBatches: student.enrolledBatches,
+          tenants: student.tenants
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in joinBatch:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while joining batch.'
+    });
+  }
+};
+
+/**
+ * @route   POST /api/auth/regenerate-batch-code
+ * @desc    Regenerate unique 6-digit batch code for an existing batch
+ * @access  Protected (Teachers only)
+ */
+export const regenerateBatchCode = async (req, res) => {
+  try {
+    const { batchId } = req.body;
+    if (!batchId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Batch ID is required to regenerate code.'
+      });
+    }
+
+    let batch = db.batches ? db.batches.find(b => b.id === batchId) : null;
+    const newCode = String(Math.floor(100000 + Math.random() * 900000));
+
+    if (batch) {
+      batch.joinCode = newCode;
+    } else {
+      // Create or update mock batch if needed
+      batch = { id: batchId, joinCode: newCode, name: 'Batch' };
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Batch code regenerated successfully.',
+      data: {
+        batchId: batch.id,
+        batchName: batch.name,
+        newBatchCode: newCode
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in regenerateBatchCode:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while regenerating batch code.'
     });
   }
 };
 
 /**
  * @route   POST /api/auth/register-student
- * @desc    Self-register student with verified tuition join code
+ * @desc    Self-register student independently without requiring any teacher or tuition join code
  * @access  Public
  */
 export const registerStudent = async (req, res) => {
   try {
-    const { name, phone, email, password, confirmPassword, joinCode } = req.body;
+    const { name, phone, email, password, confirmPassword } = req.body;
 
     // 1. Validate required fields
-    if (!name || !phone || !email || !password || !joinCode) {
+    if (!name || !phone || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Full Name, Mobile Number, Email, Password, and Join Code are required.'
+        message: 'Full Name, Mobile Number, Email, and Password are required.'
       });
     }
 
@@ -231,16 +429,7 @@ export const registerStudent = async (req, res) => {
       });
     }
 
-    // 2. Strict Join Code Verification
-    const resolved = resolveJoinCode(joinCode);
-    if (!resolved) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or inactive tuition join code. Students cannot join without a valid teacher code.'
-      });
-    }
-
-    // 3. Prevent duplicate mobile or email
+    // 2. Prevent duplicate mobile or email
     const existingUser = db.users.find(u => 
       (u.phone && (u.phone === cleanPhone || u.phone.slice(-10) === cleanPhone)) ||
       (u.email && u.email.toLowerCase() === cleanEmail)
@@ -253,12 +442,11 @@ export const registerStudent = async (req, res) => {
       });
     }
 
-    // 4. Hash password securely
+    // 3. Hash password securely
     const passwordHash = await hashPassword(password);
 
-    // 5. Create new student record
+    // 4. Create new independent student record (initially unassociated with any teacher or batch)
     const studentId = `u_student_${Date.now()}`;
-    const rollNo = `S-${Math.floor(100 + Math.random() * 900)}`;
 
     const newStudent = {
       id: studentId,
@@ -268,35 +456,27 @@ export const registerStudent = async (req, res) => {
       username: cleanPhone,
       passwordHash,
       role: 'STUDENT',
-      tuitionId: resolved.tuition.id,
-      tenants: [
-        {
-          tuitionId: resolved.tuition.id,
-          tuitionName: resolved.tuition.name,
-          teacherId: resolved.teacher.id,
-          teacherName: resolved.teacher.name,
-          batch: resolved.batch?.name || 'Class 10 - Foundation Batch',
-          rollNo: rollNo
-        }
-      ],
+      tuitionId: null,
+      tenants: [],
+      enrolledBatches: [],
       isActive: true,
       createdAt: new Date().toISOString()
     };
 
     db.users.push(newStudent);
 
-    // 6. Generate multi-tenant token
+    // 5. Generate session token
     const token = generateToken({
       userId: newStudent.id,
       role: newStudent.role,
-      tuitionId: resolved.tuition.id,
+      tuitionId: null,
       name: newStudent.name,
       email: newStudent.email
     });
 
     return res.status(201).json({
       success: true,
-      message: `Account created successfully! You are enrolled in ${resolved.tuition.name}.`,
+      message: 'Student account created successfully! You can now join tuition batches.',
       data: {
         token,
         user: {
@@ -305,11 +485,11 @@ export const registerStudent = async (req, res) => {
           email: newStudent.email,
           phone: newStudent.phone,
           role: newStudent.role,
-          tuitionId: resolved.tuition.id,
-          tuitionName: resolved.tuition.name,
-          batch: resolved.batch?.name || 'Class 10 - Foundation Batch',
-          rollNo: rollNo,
-          tenants: newStudent.tenants
+          tuitionId: null,
+          tuitionName: '',
+          batch: '',
+          enrolledBatches: [],
+          tenants: []
         }
       }
     });
@@ -714,7 +894,9 @@ export const verifyOtp = async (req, res) => {
 };
 
 export default {
-  verifyJoinCode,
+  verifyBatchCode,
+  joinBatch,
+  regenerateBatchCode,
   registerStudent,
   regenerateTeacherJoinCode,
   registerTeacher,

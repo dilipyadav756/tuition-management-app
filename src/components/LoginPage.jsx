@@ -68,97 +68,14 @@ export default function LoginPage({ onLoginSuccess }) {
   const [otpSent, setOtpSent] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
 
-  // Form Fields - Student Self-Registration
+  // Form Fields - Student Self-Registration (Independent, No Code Required)
   const [regStudentName, setRegStudentName] = useState('');
   const [regStudentPhone, setRegStudentPhone] = useState('');
   const [regStudentEmail, setRegStudentEmail] = useState('');
   const [regStudentPassword, setRegStudentPassword] = useState('');
   const [regStudentConfirmPassword, setRegStudentConfirmPassword] = useState('');
-  const [regStudentJoinCode, setRegStudentJoinCode] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
-
-  // Helper: Verify & Resolve Join Code to Teacher & Tuition Center
-  const resolveJoinCode = (code) => {
-    if (!code || typeof code !== 'string') return null;
-    const clean = code.trim().toUpperCase();
-    if (clean.length < 3) return null;
-
-    // 1. Check tm_batches in localStorage
-    try {
-      const rawBatches = localStorage.getItem('tm_batches');
-      const batches = rawBatches ? JSON.parse(rawBatches) : [];
-      const matchedBatch = batches.find(b => b.joinCode?.toUpperCase() === clean);
-      if (matchedBatch) {
-        const rawTeachers = localStorage.getItem('tm_teachers');
-        const teachers = rawTeachers ? JSON.parse(rawTeachers) : [];
-        const teacher = teachers.find(t => t.id === matchedBatch.teacherId);
-        return {
-          tuitionId: matchedBatch.teacherId,
-          tuitionName: teacher ? (teacher.subject?.includes('Academy') || teacher.subject?.includes('Hub') ? teacher.subject : `${teacher.name}'s Classes`) : 'Academic Coaching',
-          teacherId: matchedBatch.teacherId,
-          teacherName: teacher ? teacher.name : 'Faculty Instructor',
-          batchName: matchedBatch.name,
-          monthlyFee: matchedBatch.monthlyFee || 2500,
-          joinCode: clean
-        };
-      }
-    } catch {}
-
-    // 2. Check tm_teachers in localStorage
-    try {
-      const rawTeachers = localStorage.getItem('tm_teachers');
-      const teachers = rawTeachers ? JSON.parse(rawTeachers) : [];
-      const matchedTeacher = teachers.find(t => 
-        t.registrationJoinCode?.toUpperCase() === clean ||
-        t.id?.toUpperCase() === clean
-      );
-      if (matchedTeacher) {
-        return {
-          tuitionId: matchedTeacher.id,
-          tuitionName: matchedTeacher.subject?.includes('Academy') || matchedTeacher.subject?.includes('Hub')
-            ? matchedTeacher.subject
-            : `${matchedTeacher.name}'s Academy`,
-          teacherId: matchedTeacher.id,
-          teacherName: matchedTeacher.name,
-          batchName: `${matchedTeacher.name.split(' ').pop()} Foundation Batch`,
-          monthlyFee: 2500,
-          joinCode: clean
-        };
-      }
-    } catch {}
-
-    // 3. Known Demo / Seed tuition center join codes
-    if (clean === 'SHARMA-101' || clean === '849201' || clean === '713904') {
-      return {
-        tuitionId: 't1',
-        tuitionName: 'Sharma Mathematics & Physics Academy',
-        teacherId: 't1',
-        teacherName: 'Prof. Rajesh Sharma',
-        batchName: clean === '713904' ? 'Class 12 - Math' : 'Class 10 - Batch A',
-        monthlyFee: clean === '713904' ? 3000 : 2500,
-        joinCode: clean
-      };
-    }
-
-    if (clean === 'VERMA-202' || clean === '526318') {
-      return {
-        tuitionId: 't2',
-        tuitionName: 'Verma Science & Biology Hub',
-        teacherId: 't2',
-        teacherName: 'Ms. Anita Verma',
-        batchName: 'Class 11 - Bio',
-        monthlyFee: 2800,
-        joinCode: clean
-      };
-    }
-
-    return null;
-  };
-
-  const resolvedJoinInfo = useMemo(() => {
-    return resolveJoinCode(regStudentJoinCode);
-  }, [regStudentJoinCode]);
 
   // Helper to trigger OTP countdown
   const startOtpTimer = () => {
@@ -561,13 +478,6 @@ export default function LoginPage({ onLoginSuccess }) {
       return;
     }
 
-    // Strict Join Code Check - Student CANNOT register without a verified code
-    const verifiedCenter = resolveJoinCode(regStudentJoinCode);
-    if (!verifiedCenter) {
-      setErrorMessage('Invalid or inactive Tuition Join Code. Please enter a verified code provided by your instructor (e.g. SHARMA-101 or VERMA-202).');
-      return;
-    }
-
     // Duplicate Check
     try {
       const rawRegistered = localStorage.getItem('tm_registered_students');
@@ -587,9 +497,8 @@ export default function LoginPage({ onLoginSuccess }) {
     setTimeout(() => {
       setLoading(false);
       const newStudentId = `s_${Date.now()}`;
-      const newRollNo = `S-${Math.floor(100 + Math.random() * 900)}`;
 
-      // 1. Save to registered students
+      // 1. Save independent student account (initially unassociated with any teacher or batch)
       try {
         const rawRegistered = localStorage.getItem('tm_registered_students');
         const registeredList = rawRegistered ? JSON.parse(rawRegistered) : [];
@@ -599,11 +508,13 @@ export default function LoginPage({ onLoginSuccess }) {
           phone: cleanPhone,
           email: cleanEmail,
           password: regStudentPassword,
-          teacherId: verifiedCenter.teacherId,
-          tuitionId: verifiedCenter.tuitionId,
-          tuitionName: verifiedCenter.tuitionName,
-          batch: verifiedCenter.batchName,
-          rollNo: newRollNo,
+          role: 'STUDENT',
+          teacherId: '',
+          tuitionId: '',
+          tuitionName: '',
+          batch: '',
+          enrolledBatches: [],
+          rollNo: '',
           createdAt: new Date().toISOString()
         };
         localStorage.setItem('tm_registered_students', JSON.stringify([...registeredList, newAccount]));
@@ -611,29 +522,7 @@ export default function LoginPage({ onLoginSuccess }) {
         console.error('Failed saving registered student account', err);
       }
 
-      // 2. Add to tm_students roster so the teacher sees the student immediately
-      try {
-        const rawStudents = localStorage.getItem('tm_students');
-        const studentsList = rawStudents ? JSON.parse(rawStudents) : [];
-        const newStudentRecord = {
-          id: newStudentId,
-          teacherId: verifiedCenter.teacherId,
-          name: regStudentName.trim(),
-          rollNo: newRollNo,
-          batch: verifiedCenter.batchName,
-          phone: cleanPhone,
-          email: cleanEmail,
-          parentPhone: '',
-          feeStatus: 'Pending',
-          feeAmount: verifiedCenter.monthlyFee || 2500,
-          attendanceRate: 100
-        };
-        localStorage.setItem('tm_students', JSON.stringify([...studentsList, newStudentRecord]));
-      } catch (err) {
-        console.error('Failed adding student to tuition roster', err);
-      }
-
-      // 3. Set auth session
+      // 2. Set auth session and redirect to Student Dashboard
       const authData = {
         token: 'jwt_mock_student_token_' + Date.now(),
         user: {
@@ -642,22 +531,24 @@ export default function LoginPage({ onLoginSuccess }) {
           phone: cleanPhone,
           email: cleanEmail,
           role: 'STUDENT',
-          tuitionId: verifiedCenter.tuitionId,
-          tuitionName: verifiedCenter.tuitionName,
-          batch: verifiedCenter.batchName,
-          rollNo: newRollNo
+          teacherId: '',
+          tuitionId: '',
+          tuitionName: '',
+          batch: '',
+          enrolledBatches: [],
+          rollNo: ''
         }
       };
 
       localStorage.setItem('tm_current_student_id', newStudentId);
-      localStorage.setItem('tm_current_teacher_id', verifiedCenter.teacherId);
+      localStorage.removeItem('tm_current_teacher_id');
       localStorage.setItem('tm_auth_user', JSON.stringify(authData.user));
 
-      setSuccessMessage(`Registration successful! Enrolled in ${verifiedCenter.tuitionName}. Entering Student Portal...`);
+      setSuccessMessage('Student account created successfully! Entering Student Dashboard...');
       if (onLoginSuccess) {
-        setTimeout(() => onLoginSuccess(authData), 800);
+        setTimeout(() => onLoginSuccess(authData), 700);
       }
-    }, 800);
+    }, 700);
   };
 
   // 4. Request OTP for Student
@@ -1363,51 +1254,6 @@ export default function LoginPage({ onLoginSuccess }) {
                       />
                     </div>
                   </div>
-                </div>
-
-                {/* Teacher / Tuition Centre Join Code */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-semibold text-slate-300">
-                      Teacher / Tuition Centre Join Code
-                    </label>
-                    <span className="text-[10px] text-slate-400">Required</span>
-                  </div>
-                  <div className="relative">
-                    <KeyRound className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                    <input
-                      required
-                      type="text"
-                      value={regStudentJoinCode}
-                      onChange={(e) => setRegStudentJoinCode(e.target.value.toUpperCase())}
-                      placeholder="e.g. SHARMA-101 or VERMA-202"
-                      className="w-full pl-9 pr-3 py-2 bg-slate-800/60 border border-slate-700 rounded-xl text-xs text-white font-mono uppercase tracking-wider placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  {/* Real-time Join Code verification feedback */}
-                  {regStudentJoinCode.trim().length >= 3 && (
-                    <div className="mt-1.5">
-                      {resolvedJoinInfo ? (
-                        <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-[11px] text-emerald-300 flex items-center space-x-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-                          <span className="truncate">
-                            Verified: <strong>{resolvedJoinInfo.tuitionName}</strong> ({resolvedJoinInfo.teacherName})
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="p-2 bg-rose-500/10 border border-rose-500/30 rounded-lg text-[11px] text-rose-300 flex items-center space-x-1.5">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
-                          <span>Unrecognized join code. Obtain a valid code from your teacher.</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {regStudentJoinCode.trim().length === 0 && (
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Ask your instructor for their center code (e.g. <span className="font-mono text-emerald-400">SHARMA-101</span> or <span className="font-mono text-emerald-400">VERMA-202</span>).
-                    </p>
-                  )}
                 </div>
 
                 {/* Password and Confirm Password */}
