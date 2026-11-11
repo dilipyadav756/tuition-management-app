@@ -124,16 +124,6 @@ export default function App() {
     <div className="relative">
       {/* FLOATING ACTION PILLS */}
       <div className="fixed bottom-4 right-4 z-50 flex items-center space-x-2">
-        {/* Teacher Auth Modal Pill */}
-        <button
-          onClick={() => setShowTeacherAuthModal(true)}
-          className="bg-slate-900/95 hover:bg-slate-800 text-indigo-300 px-3.5 py-2.5 rounded-2xl text-xs font-bold shadow-2xl border border-indigo-700/80 flex items-center space-x-1.5 backdrop-blur-md transition-all cursor-pointer hover:border-indigo-400"
-          title="Open Teacher Login & Center Onboarding"
-        >
-          <GraduationCap className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="hidden sm:inline">👨‍🏫 Teacher Portal</span>
-        </button>
-
         {/* Toggle Login Page Pill */}
         <button
           onClick={() => setShowLoginScreen(true)}
