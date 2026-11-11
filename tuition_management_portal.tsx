@@ -1618,6 +1618,10 @@ export default function App({
 
   // --- DIGITAL FEE RECEIPTS (BIZ-GROWTH FEATURE 2) ---
   const printFeeReceipt = (student: Student) => {
+    if (student.feeStatus !== 'Paid') {
+      showToast('Receipt unavailable. Payment has not been verified by your tuition center.');
+      return;
+    }
     const windowPrint = window.open('', '', 'width=800,height=600');
     if (!windowPrint) return;
     windowPrint.document.write(`
@@ -3177,13 +3181,19 @@ export default function App({
                         <QrCode className="w-3.5 h-3.5" />
                         <span>Pay via QR</span>
                       </button>
-                      <button 
-                        onClick={() => printFeeReceipt(activeStudent)}
-                        className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold flex items-center justify-center space-x-1 shadow-sm"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        <span>Receipt</span>
-                      </button>
+                      {activeStudent.feeStatus === 'Paid' ? (
+                        <button 
+                          onClick={() => printFeeReceipt(activeStudent)}
+                          className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold flex items-center justify-center space-x-1 shadow-sm"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Receipt</span>
+                        </button>
+                      ) : (
+                        <div className="flex-1 py-1 px-2 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-lg text-center flex items-center justify-center">
+                          Receipt issued upon payment verification
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -4105,13 +4115,20 @@ export default function App({
                     <QrCode className="w-4 h-4" />
                     <span>Pay Now via UPI QR</span>
                   </button>
-                  <button
-                    onClick={() => printFeeReceipt(activeStudent)}
-                    className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer"
-                  >
-                    <Printer className="w-4 h-4" />
-                    <span>Print Official Receipt</span>
-                  </button>
+                  {activeStudent.feeStatus === 'Paid' ? (
+                    <button
+                      onClick={() => printFeeReceipt(activeStudent)}
+                      className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Print Official Receipt</span>
+                    </button>
+                  ) : (
+                    <div className="px-4 py-3 bg-amber-500/10 border border-amber-400/30 text-amber-200 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2">
+                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>Receipt issued upon payment verification</span>
+                    </div>
+                  )}
                 </div>
               </div>
 

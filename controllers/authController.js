@@ -554,12 +554,15 @@ export const regenerateTeacherJoinCode = async (req, res) => {
  */
 export const registerTeacher = async (req, res) => {
   try {
-    const { tuitionName, teacherName, email, phone, password } = req.body;
+    const tuitionName = (req.body.tuitionName || req.body.centerName || req.body.coachingCenterName || '').trim();
+    const teacherName = (req.body.teacherName || req.body.ownerName || req.body.leadTeacherName || '').trim();
+    const rawIdentifier = (req.body.email || req.body.username || req.body.emailOrUsername || req.body.identifier || req.body.phone || '').trim();
+    const password = req.body.password;
 
-    if (!tuitionName || !teacherName || (!email && !phone) || !password) {
+    if (!tuitionName || !teacherName || !rawIdentifier || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Tuition name, teacher name, password, and email/phone are required.'
+        message: 'Tuition / Coaching Center Name, Owner / Lead Teacher Name, Username or Registered Email, and Password are required.'
       });
     }
 
@@ -570,18 +573,21 @@ export const registerTeacher = async (req, res) => {
       });
     }
 
-    const sanitizedEmail = email ? email.toLowerCase().trim() : null;
-    const sanitizedPhone = phone ? phone.replace(/\D/g, '').slice(-10) : null;
+    const isEmail = rawIdentifier.includes('@');
+    const sanitizedEmail = isEmail ? rawIdentifier.toLowerCase() : `${rawIdentifier.toLowerCase()}@tuition.local`;
+    const sanitizedUsername = isEmail ? rawIdentifier.split('@')[0].toLowerCase() : rawIdentifier.toLowerCase();
+    const sanitizedPhone = req.body.phone ? req.body.phone.replace(/\D/g, '').slice(-10) : null;
 
     const existingUser = db.users.find(u => 
-      (sanitizedEmail && u.email === sanitizedEmail) || 
+      (sanitizedEmail && u.email?.toLowerCase() === sanitizedEmail) || 
+      (sanitizedUsername && u.username?.toLowerCase() === sanitizedUsername) ||
       (sanitizedPhone && u.phone === sanitizedPhone)
     );
 
     if (existingUser) {
       return res.status(409).json({
         success: false,
-        message: 'An account with this email or phone number is already registered.'
+        message: 'An account with this email or username is already registered.'
       });
     }
 
@@ -596,7 +602,7 @@ export const registerTeacher = async (req, res) => {
     // 1. Create Tuition Tenant Record
     const newTuition = {
       id: tuitionId,
-      name: tuitionName.trim(),
+      name: tuitionName,
       code: tuitionCode,
       joinCode: tuitionCode,
       phone: sanitizedPhone,
@@ -608,8 +614,9 @@ export const registerTeacher = async (req, res) => {
     // 2. Create Teacher User Record
     const newTeacher = {
       id: teacherId,
-      name: teacherName.trim(),
+      name: teacherName,
       email: sanitizedEmail,
+      username: sanitizedUsername,
       phone: sanitizedPhone,
       passwordHash,
       registrationJoinCode: tuitionCode,
@@ -638,6 +645,7 @@ export const registerTeacher = async (req, res) => {
           id: newTeacher.id,
           name: newTeacher.name,
           email: newTeacher.email,
+          username: newTeacher.username,
           phone: newTeacher.phone,
           role: newTeacher.role,
           tuitionId: newTuition.id,
@@ -653,6 +661,97 @@ export const registerTeacher = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Internal server error while creating teacher account.'
+    });
+  }
+};
+
+/**
+ * @route   POST /api/auth/teacher/login
+ * @desc    Authenticate teacher with Username or Registered Email and Password
+ * @access  Public
+ */
+export const teacherLogin = async (req, res) => {
+  try {
+    const rawId = req.body.username || req.body.email || req.body.identifier || req.body.emailOrUsername;
+    const password = req.body.password;
+
+    if (!rawId || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username or Registered Email and Password are required.'
+      });
+    }
+
+    const cleanId = rawId.trim().toLowerCase();
+    const cleanPhone = rawId.replace(/\D/g, '').slice(-10);
+
+    // Look for teacher in db.users
+    const user = db.users.find(u => {
+      const emailMatch = u.email && u.email.toLowerCase() === cleanId;
+      const usernameMatch = u.username && u.username.toLowerCase() === cleanId;
+      const phoneMatch = u.phone && (u.phone === cleanPhone || u.phone === cleanId);
+      return emailMatch || usernameMatch || phoneMatch;
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid teacher credentials. Account not found.'
+      });
+    }
+
+    if (user.role !== 'TEACHER' && user.role !== 'TUITION_OWNER') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access restricted. This portal is strictly for tuition instructors and center owners.'
+      });
+    }
+
+    const isMatch = await verifyPassword(password, user.passwordHash);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid password. Please check your credentials.'
+      });
+    }
+
+    const tuition = db.tuitions.find(t => t.id === user.tuitionId || t.ownerId === user.id) || {
+      id: user.tuitionId || 't_inst_1',
+      name: user.name + ' Academy'
+    };
+
+    const token = generateToken({
+      userId: user.id,
+      role: 'TEACHER',
+      tuitionId: tuition.id,
+      name: user.name,
+      email: user.email
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Teacher authenticated successfully.',
+      data: {
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          username: user.username,
+          phone: user.phone,
+          role: 'TEACHER',
+          tuitionId: tuition.id,
+          tuitionName: tuition.name,
+          upiId: user.upiId || tuition.upiId
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in teacherLogin:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during teacher authentication.'
     });
   }
 };

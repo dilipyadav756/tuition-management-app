@@ -3,22 +3,15 @@ import {
   Download, 
   X, 
   FileSpreadsheet, 
-  FileText, 
   Users, 
   DollarSign, 
   Calendar, 
   Layers, 
   ShieldCheck, 
   CheckCircle2, 
-  AlertCircle, 
-  Database, 
-  Sparkles, 
-  Check, 
   Award,
   BookOpen,
   HelpCircle,
-  Lock,
-  ChevronRight,
   GraduationCap
 } from 'lucide-react';
 import { 
@@ -37,7 +30,7 @@ export interface ExportModalProps {
   onToast?: (message: string) => void;
 }
 
-export default function ExportModal({
+export function ExportWorkspaceModal({
   isOpen,
   onClose,
   dataset,
@@ -69,15 +62,6 @@ export default function ExportModal({
   const passRate = scoresCount > 0 ? Math.round((passedScoresCount / scoresCount) * 100) : 100;
   const totalQuestions = dataset.tests.reduce((acc, t) => acc + (t.questions?.length || 0), 0);
   const subjectsCovered = new Set(dataset.tests.map(t => t.subject)).size || (dataset.teacher.subject ? 1 : 0);
-
-  // Full Backup Metrics
-  const totalCenterRecords = 
-    dataset.students.length + 
-    dataset.batches.length + 
-    dataset.notes.length + 
-    dataset.tests.length + 
-    scoresCount + 
-    (dataset.pendingRequests?.length || 0);
 
   const handleDownload = (format: ExportFormat) => {
     setDownloadingFormat(format);
@@ -138,7 +122,7 @@ export default function ExportModal({
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Consolidated multi-sheet Excel workbooks, granular CSV datasets, and full system backup
+                Consolidated multi-sheet Excel workbooks and granular CSV datasets
               </p>
             </div>
           </div>
@@ -422,63 +406,15 @@ export default function ExportModal({
 
           </div>
 
-          {/* ================================================================= */}
-          {/* 3. FULL SYSTEM BACKUP (JSON) — SEPARATE DEDICATED OPTION */}
-          {/* ================================================================= */}
-          <div className="bg-slate-900/60 border border-slate-800 hover:border-slate-700 rounded-3xl p-5 transition-all">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              
-              <div className="flex items-start space-x-3.5">
-                <div className="p-2.5 bg-slate-800 text-slate-300 border border-slate-700 rounded-2xl shrink-0 mt-0.5">
-                  <Database className="w-5 h-5 text-indigo-400" />
-                </div>
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <h4 className="text-sm font-extrabold text-white">
-                      Full System Backup (JSON)
-                    </h4>
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400">
-                      Schema v2.0
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1 max-w-xl leading-relaxed">
-                    Preserves complete authorized center data: teacher profile, batches, student roster, fee ledger, daily attendance, study notes, quizzes, scores, and join requests. Formatted for seamless 1-click restore.
-                  </p>
-                  <div className="flex items-center space-x-3 text-[11px] text-slate-400 mt-2 font-mono">
-                    <span>• {totalCenterRecords} Center Records</span>
-                    <span>• Multi-Tenant Isolated</span>
-                    <span>• Passwords Stripped</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="shrink-0 self-end sm:self-center">
-                <button
-                  onClick={() => handleDownload('JSON_FULL')}
-                  disabled={downloadingFormat === 'JSON_FULL'}
-                  className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-white font-bold rounded-2xl text-xs flex items-center space-x-2 transition-all shadow-md cursor-pointer disabled:opacity-50"
-                >
-                  <Database className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>
-                    {downloadingFormat === 'JSON_FULL' ? 'Generating Backup...' : 'Download Backup (.json)'}
-                  </span>
-                </button>
-              </div>
-
-            </div>
-          </div>
-
         </div>
 
         {/* =================================================================== */}
-        {/* 4. FIXED MODAL FOOTER */}
+        {/* 3. FIXED MODAL FOOTER */}
         {/* =================================================================== */}
         <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-900/95 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="flex items-center space-x-2 text-[11px] text-slate-400 text-center sm:text-left">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>
-              Strict Tenant Isolation • RFC 4180 / UTF-8 BOM Compliant • Answer keys protected by RBAC
-            </span>
+            <span>Strict Tenant Isolation • Password Protected Exports</span>
           </div>
 
           <button
@@ -493,3 +429,5 @@ export default function ExportModal({
     </div>
   );
 }
+
+export default ExportWorkspaceModal;

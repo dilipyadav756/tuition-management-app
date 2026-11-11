@@ -904,7 +904,6 @@ export default function LoginPage({ onLoginSuccess }) {
 
                 {/* REGISTER NEW TUITION TRIGGER */}
                 <div className="pt-4 border-t border-slate-800/80 text-center">
-                  <p className="text-xs text-slate-400 mb-2">New Tutor or Coaching Center?</p>
                   <button
                     type="button"
                     onClick={() => {
@@ -913,8 +912,7 @@ export default function LoginPage({ onLoginSuccess }) {
                     }}
                     className="w-full py-2.5 bg-slate-800 hover:bg-slate-700/80 text-indigo-300 border border-slate-700/80 font-semibold rounded-xl text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer"
                   >
-                    <Building2 className="w-4 h-4 text-indigo-400" />
-                    <span>Register New Tuition Center</span>
+                    <span>Need an account? Create Your Tuition Center Account →</span>
                   </button>
                 </div>
               </form>
@@ -1023,6 +1021,19 @@ export default function LoginPage({ onLoginSuccess }) {
                 >
                   {loading ? <RotateCw className="w-4 h-4 animate-spin" /> : <span>Complete Registration</span>}
                 </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTeacherView('LOGIN');
+                      setErrorMessage('');
+                    }}
+                    className="text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    ← Already registered? Back to Teacher Login
+                  </button>
+                </div>
               </form>
             )}
           </div>
