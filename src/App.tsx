@@ -159,7 +159,6 @@ export default function App() {
       {showTeacherAuthModal && (
         <TeacherAuthModal
           isOpen={showTeacherAuthModal}
-          initialMode={teacherAuthMode}
           initialRole={authModalRole}
           onClose={() => setShowTeacherAuthModal(false)}
           onSuccess={(authData) => {
