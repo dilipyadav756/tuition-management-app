@@ -20,8 +20,7 @@ import {
   KeyRound,
   RotateCw,
   X,
-  Key,
-  Upload
+  Key
 } from 'lucide-react';
 
 export default function LoginPage({ onLoginSuccess }) {
@@ -595,82 +594,6 @@ export default function LoginPage({ onLoginSuccess }) {
     setShowForgotPasswordModal(false);
     setSuccessMessage(`Password recovery instructions dispatched to ${forgotIdentifier}`);
     setForgotIdentifier('');
-  };
-
-  // 8. Direct Backup File Import from Computer (.json)
-  const handleImportBackupFromComputer = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const backupData = JSON.parse(event.target.result);
-        if (!backupData.teacher || !backupData.teacher.id) {
-          setErrorMessage('Invalid tuition backup file: missing teacher profile.');
-          return;
-        }
-
-        const t = backupData.teacher;
-        // 1. Save teacher into tm_teachers
-        const existingTeachersRaw = localStorage.getItem('tm_teachers');
-        const existingTeachers = existingTeachersRaw ? JSON.parse(existingTeachersRaw) : [];
-        const filtered = existingTeachers.filter(item => item.id !== t.id);
-        filtered.push(t);
-        localStorage.setItem('tm_teachers', JSON.stringify(filtered));
-
-        // 2. Save batches if present
-        if (backupData.batches && backupData.batches.length > 0) {
-          const existingBatchesRaw = localStorage.getItem('tm_batches');
-          const existingBatches = existingBatchesRaw ? JSON.parse(existingBatchesRaw) : [];
-          const bFiltered = existingBatches.filter(b => b.teacherId !== t.id);
-          localStorage.setItem('tm_batches', JSON.stringify([...bFiltered, ...backupData.batches]));
-        }
-
-        // 3. Save students if present
-        if (backupData.students && backupData.students.length > 0) {
-          const existingStudentsRaw = localStorage.getItem('tm_students');
-          const existingStudents = existingStudentsRaw ? JSON.parse(existingStudentsRaw) : [];
-          const sFiltered = existingStudents.filter(s => s.teacherId !== t.id);
-          localStorage.setItem('tm_students', JSON.stringify([...sFiltered, ...backupData.students]));
-        }
-
-        // 4. Save notes if present
-        if (backupData.notes && backupData.notes.length > 0) {
-          const existingNotesRaw = localStorage.getItem('tm_notes');
-          const existingNotes = existingNotesRaw ? JSON.parse(existingNotesRaw) : [];
-          const nFiltered = existingNotes.filter(n => n.teacherId !== t.id);
-          localStorage.setItem('tm_notes', JSON.stringify([...nFiltered, ...backupData.notes]));
-        }
-
-        // 5. Unlock in sessionStorage
-        sessionStorage.setItem(`tm_unlocked_${t.id}`, 'true');
-        localStorage.setItem('tm_current_teacher_id', t.id);
-
-        const authData = {
-          token: 'jwt_mock_token_imported_' + Date.now(),
-          user: {
-            id: t.id,
-            name: t.name,
-            email: t.email || '',
-            phone: t.phone || '',
-            role: 'TEACHER',
-            tuitionId: t.id,
-            tuitionName: t.subject || t.name,
-            pin: t.pin || '1234'
-          }
-        };
-
-        setSuccessMessage(`Loaded "${t.name}" workspace successfully from computer! Logging in...`);
-        if (onLoginSuccess) {
-          setTimeout(() => onLoginSuccess(authData), 600);
-        }
-      } catch (err) {
-        setErrorMessage('Failed to parse backup file. Please select a valid .json file.');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
   };
 
   return (
@@ -1368,37 +1291,18 @@ export default function LoginPage({ onLoginSuccess }) {
           </div>
         )}
 
-        {/* QUICK RESTORE FROM COMPUTER FILE (.JSON) & DEMO SHOWCASE (STUDENT/TEACHER ONLY) */}
+        {/* PUBLIC DEMO SHOWCASE TRIGGER (STUDENT/TEACHER ONLY) */}
         {activeRoleTab !== 'SUPER_ADMIN' && (
           <div className="pt-4 border-t border-slate-800 text-center">
-            <input
-              id="login-backup-file-input"
-              type="file"
-              accept=".json"
-              onChange={handleImportBackupFromComputer}
-              className="hidden"
-            />
             <button
               type="button"
-              onClick={() => document.getElementById('login-backup-file-input')?.click()}
-              className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center justify-center space-x-1.5 mx-auto bg-slate-800/80 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-700/80 transition-all cursor-pointer shadow-sm"
+              onClick={() => setShowDemoCentersModal(true)}
+              className="text-xs text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center space-x-1.5 transition-colors cursor-pointer"
             >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Load Workspace File (.json) from Computer</span>
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Explore Demo Tuition Centers & Platform Features</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
-
-            {/* PUBLIC DEMO SHOWCASE TRIGGER */}
-            <div className="pt-3 border-t border-slate-800/80 mt-3">
-              <button
-                type="button"
-                onClick={() => setShowDemoCentersModal(true)}
-                className="text-xs text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center space-x-1.5 transition-colors cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Explore Demo Tuition Centers & Platform Features</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
           </div>
         )}
       </div>

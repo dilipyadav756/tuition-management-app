@@ -48,7 +48,6 @@ import {
   ArrowRight,
   ShieldAlert,
   Lock,
-  Upload,
   CreditCard,
   Edit3,
   Save
@@ -871,122 +870,6 @@ export default function App({
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     showToast('Tuition workspace backup (JSON) exported successfully!');
-  };
-
-  const fileImportInputRef = useRef<HTMLInputElement>(null);
-
-  // Import & Restore workspace data from computer JSON file (e.g. tuition_backup_*.json)
-  const handleImportWorkspaceFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const content = event.target?.result as string;
-        const backupData = JSON.parse(content);
-
-        // Validation
-        if (!backupData.teacher || !backupData.teacher.id) {
-          showToast('Invalid backup file format: missing teacher profile data.');
-          return;
-        }
-
-        const importedTeacher: Teacher = backupData.teacher;
-        const importedBatches: Batch[] = backupData.batches || [];
-        const importedStudents: Student[] = backupData.students || [];
-        const importedNotes: Note[] = backupData.notes || [];
-        const importedTests: Test[] = backupData.tests || [];
-        const importedRequests: BatchJoinRequest[] = backupData.pendingRequests || [];
-
-        // 1. Update Teachers list
-        setTeachers(prev => {
-          const filtered = prev.filter(t => t.id !== importedTeacher.id);
-          const updated = [...filtered, importedTeacher];
-          try { localStorage.setItem('tm_teachers', JSON.stringify(updated)); } catch {}
-          return updated;
-        });
-
-        // 2. Set current teacher to imported teacher and unlock profile
-        setCurrentTeacherId(importedTeacher.id);
-        setIsTeacherUnlocked(true);
-        setCurrentRole('teacher');
-
-        try {
-          sessionStorage.setItem(`tm_unlocked_${importedTeacher.id}`, 'true');
-          localStorage.setItem('tm_current_teacher_id', importedTeacher.id);
-        } catch {}
-
-        // 3. Update Batches
-        if (importedBatches.length > 0) {
-          setBatches(prev => {
-            const existingOther = prev.filter(b => b.teacherId !== importedTeacher.id);
-            const updated = [...existingOther, ...importedBatches];
-            try { localStorage.setItem('tm_batches', JSON.stringify(updated)); } catch {}
-            return updated;
-          });
-        }
-
-        // 4. Update Students
-        if (importedStudents.length > 0) {
-          setStudents(prev => {
-            const existingOther = prev.filter(s => s.teacherId !== importedTeacher.id);
-            const updated = [...existingOther, ...importedStudents];
-            try { localStorage.setItem('tm_students', JSON.stringify(updated)); } catch {}
-            return updated;
-          });
-        }
-
-        // 5. Update Notes
-        if (importedNotes.length > 0) {
-          setNotes(prev => {
-            const existingOther = prev.filter(n => n.teacherId !== importedTeacher.id);
-            const updated = [...existingOther, ...importedNotes];
-            try { localStorage.setItem('tm_notes', JSON.stringify(updated)); } catch {}
-            return updated;
-          });
-        }
-
-        // 6. Update Tests
-        if (importedTests.length > 0) {
-          setTests(prev => {
-            const existingOther = prev.filter(t => t.teacherId !== importedTeacher.id);
-            const updated = [...existingOther, ...importedTests];
-            try { localStorage.setItem('tm_tests', JSON.stringify(updated)); } catch {}
-            return updated;
-          });
-        }
-
-        // 7. Update Join Requests
-        if (importedRequests.length > 0) {
-          setJoinRequests(prev => {
-            const existingOther = prev.filter(r => r.teacherId !== importedTeacher.id);
-            const updated = [...existingOther, ...importedRequests];
-            try { localStorage.setItem('tm_join_requests', JSON.stringify(updated)); } catch {}
-            return updated;
-          });
-        }
-
-        // Update auth user if currentUser exists
-        if (onUserUpdate) {
-          onUserUpdate({
-            id: importedTeacher.id,
-            name: importedTeacher.name,
-            role: 'TEACHER',
-            tuitionId: importedTeacher.id,
-            tuitionName: importedTeacher.subject,
-            pin: importedTeacher.pin || '1234'
-          });
-        }
-
-        showToast(`🎉 Restored "${importedTeacher.name}" (${importedTeacher.subject}) from computer backup!`);
-      } catch (err) {
-        showToast('Error parsing backup file. Please select a valid .json file.');
-      }
-    };
-
-    reader.readAsText(file);
-    e.target.value = '';
   };
 
   // Helper: XSS sanitizer for print templates
@@ -2488,18 +2371,6 @@ export default function App({
                 >
                   {currentUser ? '← Sign out of this account' : '← Switch to a different teacher'}
                 </button>
-
-                {/* Direct File Restore from Computer */}
-                <div className="pt-2 border-t border-slate-100 text-center">
-                  <button
-                    type="button"
-                    onClick={() => fileImportInputRef.current?.click()}
-                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center justify-center space-x-1.5 mx-auto py-1 cursor-pointer hover:underline"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Import Workspace File (.json) from Computer</span>
-                  </button>
-                </div>
 
                 {/* Demo hint */}
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
