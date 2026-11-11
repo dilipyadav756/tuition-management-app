@@ -5,6 +5,7 @@ import DemoTuitionCenters from './src/components/DemoTuitionCenters';
 import ExportModal from './src/components/ExportModal';
 import AuthGateModal from './src/components/AuthGateModal';
 import { ExportDataset } from './src/utils/exportManager';
+import api from './src/services/api';
 import { 
   Users, 
   BookOpen, 
@@ -1753,6 +1754,17 @@ export default function App({
     };
 
     setBatches([...batches, newBatch]);
+    // Asynchronously synchronize batch with backend MongoDB database
+    api.student.createBatch({
+      id: newBatch.id,
+      name: newBatch.name,
+      subject: newBatch.subject,
+      monthlyFee: newBatch.monthlyFee,
+      schedule: newBatch.schedule,
+      joinCode: newBatch.joinCode,
+      teacherId: currentTeacherId
+    }).catch(err => console.warn('[Batch Sync] Could not sync batch to backend database:', err?.message || err));
+
     setShowCreateBatchModal(false);
     showToast(`Batch created with Unique Join Code: ${generatedCode}`);
   };

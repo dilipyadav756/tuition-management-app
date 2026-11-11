@@ -168,9 +168,21 @@ export const api = {
       })
   },
 
-  // Student Endpoints
+  // Student & Batches Endpoints
   student: {
-    getReceipt: (batchId: string) => request(`/student/receipt/${batchId}`)
+    getReceipt: (batchId: string) => request(`/student/receipt/${batchId}`),
+    createBatch: (batchData: { id?: string; name: string; subject?: string; monthlyFee?: number; schedule?: string; teacherId?: string; tuitionId?: string; joinCode?: string }) =>
+      request('/student/batch', {
+        method: 'POST',
+        body: JSON.stringify(batchData)
+      }),
+    getBatches: (teacherId?: string) =>
+      request(teacherId ? `/student/batches/${teacherId}` : '/student/batches'),
+    recordPayment: (paymentData: { studentId: string; batchId: string; amount: number; studentName?: string; batchName?: string; paymentMethod?: string }) =>
+      request('/student/payment', {
+        method: 'POST',
+        body: JSON.stringify(paymentData)
+      })
   },
 
   // Export Endpoints

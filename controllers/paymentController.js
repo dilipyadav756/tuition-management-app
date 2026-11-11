@@ -104,8 +104,8 @@ export const updateTeacherUpi = async (req, res) => {
       tuitionRecord.upiId = sanitizedUpiId;
     }
 
-    // Persist to disk
-    saveDb();
+    // Persist to disk and cloud database
+    await saveDb();
 
     console.log(`[Payment Audit] Teacher ${user.name} (${user.userId}) updated UPI ID to: ${sanitizedUpiId}`);
 

@@ -1,18 +1,18 @@
 import mongoose from 'mongoose';
 
 /**
- * User Schema (Teachers, Students, Super-Admins)
+ * User Schema (Teachers, Students, Super-Admins, Tuition Owners)
  */
 const UserSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, index: true },
   name: { type: String, required: true, trim: true },
-  email: { type: String, lowercase: true, trim: true, index: true },
-  phone: { type: String, trim: true, index: true },
-  username: { type: String, lowercase: true, trim: true, index: true },
+  email: { type: String, lowercase: true, trim: true, sparse: true, index: true },
+  phone: { type: String, trim: true, sparse: true, index: true },
+  username: { type: String, lowercase: true, trim: true, sparse: true, index: true },
   passwordHash: { type: String, required: true },
   role: { 
     type: String, 
-    enum: ['TEACHER', 'STUDENT', 'SUPER_ADMIN'], 
+    enum: ['TEACHER', 'STUDENT', 'SUPER_ADMIN', 'TUITION_OWNER', 'ADMIN', 'teacher', 'student'], 
     required: true,
     index: true 
   },
@@ -35,8 +35,8 @@ const UserSchema = new mongoose.Schema({
 const TuitionSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, index: true },
   name: { type: String, required: true, trim: true },
-  code: { type: String, required: true, index: true },
-  joinCode: { type: String, required: true, index: true },
+  code: { type: String, index: true },
+  joinCode: { type: String, index: true },
   phone: { type: String, trim: true },
   ownerId: { type: String, index: true },
   upiId: { type: String, trim: true },
@@ -51,7 +51,11 @@ const TuitionSchema = new mongoose.Schema({
  */
 const BatchSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, index: true },
-  tuitionId: { type: String, required: true, index: true },
+  tuitionId: { 
+    type: String, 
+    index: true,
+    default: function() { return this.teacherId || 'default'; }
+  },
   teacherId: { type: String, required: true, index: true },
   name: { type: String, required: true, trim: true },
   subject: { type: String, trim: true },
@@ -67,7 +71,7 @@ const BatchSchema = new mongoose.Schema({
  * Payment / Receipt Schema
  */
 const PaymentSchema = new mongoose.Schema({
-  receiptNumber: { type: String, required: true, unique: true },
+  receiptNumber: { type: String, required: true, unique: true, index: true },
   studentId: { type: String, required: true, index: true },
   studentName: { type: String },
   batchId: { type: String, required: true, index: true },
@@ -91,4 +95,3 @@ export default {
   BatchModel,
   PaymentModel
 };
-

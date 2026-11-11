@@ -5,9 +5,9 @@ import { UserModel, TuitionModel, BatchModel, PaymentModel } from './mongooseMod
 
 /**
  * Database Repository: EduMaster Multi-Tenant Persistent Storage
- * Dual-Mode Engine:
- *  1. Cloud Database: MongoDB Atlas (when MONGODB_URI is provided)
- *  2. Local File Persistence: data/edumaster_db.json (fallback for offline/dev)
+ * Dual-Mode Resilience Engine:
+ *  1. Cloud / Local MongoDB: MongoDB Atlas or local daemon (port 27017)
+ *  2. Local File Persistence: data/edumaster_db.json (automatic fallback for offline / disconnected environments)
  */
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
@@ -191,61 +191,91 @@ export const db = {
 };
 
 let mongoConnected = false;
+let activeDatabaseSource = 'Uninitialized';
+let listenersRegistered = false;
 
 export const isMongoConnected = () => mongoConnected;
+export const getActiveDatabaseSource = () => activeDatabaseSource;
 
 /**
- * Connect to MongoDB Atlas and synchronize records
+ * Configure Mongoose Connection Lifecycle Event Listeners
  */
-export async function connectMongo(mongoUri = process.env.MONGODB_URI) {
-  if (!mongoUri) {
-    console.log('[Database] MONGODB_URI not provided. Running in persistent file mode (data/edumaster_db.json).');
-    return false;
-  }
+function setupMongooseListeners() {
+  if (listenersRegistered) return;
+  listenersRegistered = true;
 
-  try {
-    console.log('[Database] Connecting to MongoDB Atlas...');
-    await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000
-    });
-
+  mongoose.connection.on('connected', () => {
     mongoConnected = true;
-    console.log('✅ [Database] Successfully connected to MongoDB Atlas Cloud Database.');
+    console.log('✅ [Database] Mongoose Event: Connected successfully to MongoDB daemon/cluster.');
+  });
 
-    // Hydrate & Seed MongoDB Atlas if collections are empty
-    const userCount = await UserModel.countDocuments();
-    if (userCount === 0) {
-      console.log('[Database] Seeding initial records to MongoDB Atlas...');
-      await TuitionModel.insertMany(db.tuitions);
-      await BatchModel.insertMany(db.batches);
-      await UserModel.insertMany(db.users);
-      console.log('[Database] Seed records successfully inserted into MongoDB Atlas.');
-    } else {
-      // Load all records from MongoDB into memory
-      const mongoTuitions = await TuitionModel.find().lean();
-      const mongoBatches = await BatchModel.find().lean();
-      const mongoUsers = await UserModel.find().lean();
+  mongoose.connection.on('error', (err) => {
+    console.error('❌ [Database] Mongoose Event: Connection error encountered:', err.message);
+  });
 
-      if (mongoTuitions.length > 0) db.tuitions = mongoTuitions;
-      if (mongoBatches.length > 0) db.batches = mongoBatches;
-      if (mongoUsers.length > 0) db.users = mongoUsers;
-
-      console.log(`[Database] Hydrated ${db.users.length} users, ${db.tuitions.length} tuitions, and ${db.batches.length} batches from MongoDB.`);
-    }
-
-    return true;
-  } catch (err) {
+  mongoose.connection.on('disconnected', () => {
     mongoConnected = false;
-    console.warn('⚠️ [Database] Failed to connect to MongoDB Atlas. Falling back to local file storage:', err.message);
-    return false;
-  }
+    console.warn('⚠️ [Database] Mongoose Event: Disconnected from MongoDB daemon.');
+  });
+
+  mongoose.connection.on('reconnected', () => {
+    mongoConnected = true;
+    console.log('🔄 [Database] Mongoose Event: Reconnected to MongoDB.');
+  });
 }
 
 /**
- * Persist current state to disk and cloud MongoDB (if connected)
+ * Synchronize MongoDB documents with in-memory database and disk
  */
-export const saveDb = async () => {
-  // 1. Always flush to local file
+async function syncMongoCollections() {
+  const userCount = await UserModel.countDocuments();
+  if (userCount === 0) {
+    console.log('[Database] MongoDB collection is empty. Seeding initial records...');
+    if (db.tuitions.length > 0) await TuitionModel.insertMany(db.tuitions);
+    if (db.batches.length > 0) await BatchModel.insertMany(db.batches);
+    if (db.users.length > 0) await UserModel.insertMany(db.users);
+    console.log('[Database] Seed records successfully inserted into MongoDB.');
+  } else {
+    // Hydrate memory with MongoDB records
+    const mongoTuitions = await TuitionModel.find().lean();
+    const mongoBatches = await BatchModel.find().lean();
+    const mongoUsers = await UserModel.find().lean();
+
+    if (mongoTuitions && mongoTuitions.length > 0) {
+      mongoTuitions.forEach(mt => {
+        const idx = db.tuitions.findIndex(t => t.id === mt.id);
+        if (idx >= 0) db.tuitions[idx] = { ...db.tuitions[idx], ...mt };
+        else db.tuitions.push(mt);
+      });
+    }
+
+    if (mongoBatches && mongoBatches.length > 0) {
+      mongoBatches.forEach(mb => {
+        const idx = db.batches.findIndex(b => b.id === mb.id);
+        if (idx >= 0) db.batches[idx] = { ...db.batches[idx], ...mb };
+        else db.batches.push(mb);
+      });
+    }
+
+    if (mongoUsers && mongoUsers.length > 0) {
+      mongoUsers.forEach(mu => {
+        const idx = db.users.findIndex(u => u.id === mu.id);
+        if (idx >= 0) db.users[idx] = { ...db.users[idx], ...mu };
+        else db.users.push(mu);
+      });
+    }
+
+    console.log(`[Database] Hydrated ${db.users.length} users, ${db.tuitions.length} tuitions, and ${db.batches.length} batches.`);
+  }
+
+  // Ensure disk file is updated with merged data
+  flushToFile();
+}
+
+/**
+ * Flush in-memory collections directly to disk
+ */
+function flushToFile() {
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -260,44 +290,121 @@ export const saveDb = async () => {
   } catch (err) {
     console.error('[DB] Failed to save database to disk:', err.message);
   }
+}
 
-  // 2. If MongoDB Atlas is connected, upsert in the cloud asynchronously
+/**
+ * Connect to MongoDB with robust fallback cascade:
+ *  Priority 1: Environment MONGODB_URI (e.g. MongoDB Atlas Cloud)
+ *  Priority 2: Local MongoDB Daemon (mongodb://127.0.0.1:27017/edumaster)
+ *  Priority 3: Persistent File Storage (data/edumaster_db.json)
+ */
+export async function connectMongo(preferredUri = process.env.MONGODB_URI) {
+  setupMongooseListeners();
+
+  const targets = [];
+
+  if (preferredUri) {
+    const isCloud = preferredUri.includes('mongodb+srv://') || preferredUri.includes('.mongodb.net');
+    targets.push({
+      uri: preferredUri,
+      label: isCloud ? 'MongoDB Atlas (Cloud Cluster)' : 'Configured MongoDB URI'
+    });
+  }
+
+  // Add local MongoDB fallback if not already prioritized
+  const localUri = 'mongodb://127.0.0.1:27017/edumaster';
+  if (!targets.some(t => t.uri.includes('127.0.0.1:27017') || t.uri.includes('localhost:27017'))) {
+    targets.push({
+      uri: localUri,
+      label: 'Local MongoDB Daemon (127.0.0.1:27017)'
+    });
+  }
+
+  for (const target of targets) {
+    try {
+      console.log(`[Database] Connecting to ${target.label}...`);
+      await mongoose.connect(target.uri, {
+        serverSelectionTimeoutMS: 4000,
+        connectTimeoutMS: 4000
+      });
+
+      mongoConnected = true;
+      activeDatabaseSource = target.label;
+      console.log(`✅ [Database] Successfully connected to ${target.label}.`);
+
+      // Seed & Hydrate
+      await syncMongoCollections();
+      return true;
+    } catch (err) {
+      console.warn(`⚠️ [Database] Connection failed for ${target.label}: ${err.message}`);
+    }
+  }
+
+  // Safe fallback to persistent JSON storage
+  mongoConnected = false;
+  activeDatabaseSource = 'Persistent Local File Storage (data/edumaster_db.json)';
+  console.log(`ℹ️ [Database] Running in zero-downtime offline fallback: ${activeDatabaseSource}`);
+  return false;
+}
+
+/**
+ * Persist current state to disk and cloud/local MongoDB (if connected)
+ */
+export const saveDb = async () => {
+  // 1. Always flush to local disk first
+  flushToFile();
+
+  // 2. If MongoDB is connected, bulk-upsert asynchronously
   if (mongoose.connection.readyState === 1) {
     try {
-      const userOps = db.users.map(u => ({
-        updateOne: {
-          filter: { id: u.id },
-          update: { $set: u },
-          upsert: true
-        }
-      }));
-      const tuitionOps = db.tuitions.map(t => ({
-        updateOne: {
-          filter: { id: t.id },
-          update: { $set: t },
-          upsert: true
-        }
-      }));
-      const batchOps = db.batches.map(b => ({
-        updateOne: {
-          filter: { id: b.id },
-          update: { $set: b },
-          upsert: true
-        }
-      }));
+      const userOps = db.users.map(u => {
+        const { _id, ...cleanUser } = u;
+        return {
+          updateOne: {
+            filter: { id: u.id },
+            update: { $set: cleanUser },
+            upsert: true
+          }
+        };
+      });
 
-      await Promise.all([
-        UserModel.bulkWrite(userOps),
-        TuitionModel.bulkWrite(tuitionOps),
-        BatchModel.bulkWrite(batchOps)
-      ]);
+      const tuitionOps = db.tuitions.map(t => {
+        const { _id, ...cleanTuition } = t;
+        return {
+          updateOne: {
+            filter: { id: t.id },
+            update: { $set: cleanTuition },
+            upsert: true
+          }
+        };
+      });
+
+      const batchOps = db.batches.map(b => {
+        const { _id, ...cleanBatch } = b;
+        return {
+          updateOne: {
+            filter: { id: b.id },
+            update: { $set: cleanBatch },
+            upsert: true
+          }
+        };
+      });
+
+      const ops = [];
+      if (userOps.length > 0) ops.push(UserModel.bulkWrite(userOps, { ordered: false }));
+      if (tuitionOps.length > 0) ops.push(TuitionModel.bulkWrite(tuitionOps, { ordered: false }));
+      if (batchOps.length > 0) ops.push(BatchModel.bulkWrite(batchOps, { ordered: false }));
+
+      if (ops.length > 0) {
+        await Promise.all(ops);
+      }
     } catch (mongoErr) {
-      console.warn('[DB] Background MongoDB sync error:', mongoErr.message);
+      console.warn('[DB] MongoDB persistence sync warning:', mongoErr.message);
     }
   }
 };
 
-// Initial file flush
+// Initial flush to disk on module load
 saveDb();
 
 export { UserModel, TuitionModel, BatchModel, PaymentModel };

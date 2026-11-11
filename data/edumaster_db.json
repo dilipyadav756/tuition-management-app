@@ -1,21 +1,20 @@
 {
   "tuitions": [
     {
-      "_id": "6af420766bb793c388e4eeda",
       "id": "t_inst_1",
       "name": "Sharma Mathematics & Physics Academy",
       "code": "SHARMA-101",
       "joinCode": "849201",
       "phone": "+91 98765 43210",
       "ownerId": "u_teacher_1",
-      "upiId": "sharma.maths@okaxis",
+      "upiId": "sharmaclasses@upi",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
+      "_id": "6af420766bb793c388e4eeda",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.690Z"
+      "updatedAt": "2026-11-11T12:51:58.646Z"
     },
     {
-      "_id": "6af420766bb793c388e4eedb",
       "id": "t_inst_2",
       "name": "Verma Science & Biology Hub",
       "code": "VERMA-202",
@@ -25,8 +24,9 @@
       "upiId": "anita.verma@okaxis",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
+      "_id": "6af420766bb793c388e4eedb",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.690Z"
+      "updatedAt": "2026-11-11T12:51:58.646Z"
     },
     {
       "_id": "6af420766bb793c388e4eedc",
@@ -39,7 +39,7 @@
       "isActive": true,
       "createdAt": "2026-11-11T07:10:12.654Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.690Z"
+      "updatedAt": "2026-11-11T12:51:58.646Z"
     },
     {
       "_id": "6af420766bb793c388e4eedd",
@@ -52,7 +52,7 @@
       "isActive": true,
       "createdAt": "2026-11-11T07:10:36.877Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.690Z"
+      "updatedAt": "2026-11-11T12:51:58.646Z"
     },
     {
       "_id": "6af420766bb793c388e4eede",
@@ -65,7 +65,7 @@
       "isActive": true,
       "createdAt": "2026-11-11T07:11:06.066Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.690Z"
+      "updatedAt": "2026-11-11T12:51:58.646Z"
     },
     {
       "_id": "6af420766bb793c388e4eedf",
@@ -78,7 +78,7 @@
       "isActive": true,
       "createdAt": "2026-11-11T07:47:51.523Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.690Z"
+      "updatedAt": "2026-11-11T12:51:58.646Z"
     },
     {
       "_id": "6af420b830f869450ae63d8d",
@@ -91,7 +91,7 @@
       "name": "Apex Academy 6686",
       "ownerId": "u_teacher_1794384056687",
       "phone": "9899966861",
-      "updatedAt": "2026-11-11T08:00:56.690Z"
+      "updatedAt": "2026-11-11T12:51:58.646Z"
     },
     {
       "id": "t_inst_1794392424797",
@@ -100,12 +100,24 @@
       "joinCode": "INST-964",
       "phone": "9899947971",
       "ownerId": "u_teacher_1794392424797",
-      "createdAt": "2026-11-11T10:20:24.797Z"
+      "createdAt": "2026-11-11T10:20:24.801Z",
+      "_id": "6af4416830f869450ae6424f",
+      "__v": 0,
+      "isActive": true,
+      "updatedAt": "2026-11-11T12:51:58.646Z"
+    },
+    {
+      "id": "t_inst_1794401805029",
+      "name": "E2E Test Academy",
+      "code": "ENDTOEND-929",
+      "joinCode": "ENDTOEND-929",
+      "phone": "9988776655",
+      "ownerId": "u_teacher_1794401805029",
+      "createdAt": "2026-11-11T12:56:45.029Z"
     }
   ],
   "batches": [
     {
-      "_id": "6af420766bb793c388e4eee0",
       "id": "b1",
       "tuitionId": "t_inst_1",
       "teacherId": "u_teacher_1",
@@ -114,12 +126,12 @@
       "joinCode": "849201",
       "monthlyFee": 2500,
       "schedule": "Mon, Wed, Fri (5:00 PM - 6:30 PM)",
+      "_id": "6af420766bb793c388e4eee0",
       "createdAt": "2026-11-11T07:59:50.440Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.690Z"
+      "updatedAt": "2026-11-11T10:20:24.806Z"
     },
     {
-      "_id": "6af420766bb793c388e4eee1",
       "id": "b2",
       "tuitionId": "t_inst_1",
       "teacherId": "u_teacher_1",
@@ -128,12 +140,12 @@
       "joinCode": "713904",
       "monthlyFee": 3000,
       "schedule": "Tue, Thu, Sat (6:00 PM - 7:30 PM)",
+      "_id": "6af420766bb793c388e4eee1",
       "createdAt": "2026-11-11T07:59:50.440Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.690Z"
+      "updatedAt": "2026-11-11T10:20:24.806Z"
     },
     {
-      "_id": "6af420766bb793c388e4eee2",
       "id": "b3",
       "tuitionId": "t_inst_2",
       "teacherId": "u_teacher_2",
@@ -142,54 +154,54 @@
       "joinCode": "526318",
       "monthlyFee": 2800,
       "schedule": "Mon, Thu, Sat (4:00 PM - 5:30 PM)",
+      "_id": "6af420766bb793c388e4eee2",
       "createdAt": "2026-11-11T07:59:50.440Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.690Z"
+      "updatedAt": "2026-11-11T10:20:24.806Z"
     }
   ],
   "users": [
     {
-      "_id": "6af420766bb793c388e4eee3",
       "id": "u_teacher_1",
       "name": "Prof. Rajesh Sharma",
       "email": "sharma.tuitions@gmail.com",
       "phone": "9876543210",
       "username": "sharma_math",
       "passwordHash": "$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6",
+      "registrationJoinCode": "SHARMA-101",
       "role": "TEACHER",
       "tuitionId": "t_inst_1",
       "upiId": "sharma.maths@okaxis",
-      "registrationJoinCode": "SHARMA-101",
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "_id": "6af420766bb793c388e4eee3",
       "tenants": [],
       "enrolledBatches": [],
       "feeStatus": "PENDING",
-      "isActive": true,
-      "createdAt": "2026-01-01T00:00:00.000Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.687Z"
+      "updatedAt": "2026-11-11T12:51:58.644Z"
     },
     {
-      "_id": "6af420766bb793c388e4eee4",
       "id": "u_teacher_2",
       "name": "Ms. Anita Verma",
       "email": "anita.science@gmail.com",
       "phone": "9812345678",
       "username": "anita_verma",
       "passwordHash": "$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6",
+      "registrationJoinCode": "VERMA-202",
       "role": "TEACHER",
       "tuitionId": "t_inst_2",
       "upiId": "anita.verma@okaxis",
-      "registrationJoinCode": "VERMA-202",
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "_id": "6af420766bb793c388e4eee4",
       "tenants": [],
       "enrolledBatches": [],
       "feeStatus": "PENDING",
-      "isActive": true,
-      "createdAt": "2026-01-01T00:00:00.000Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.687Z"
+      "updatedAt": "2026-11-11T12:51:58.644Z"
     },
     {
-      "_id": "6af420766bb793c388e4eee5",
       "id": "u_student_1",
       "name": "Aarav Patel",
       "email": "aarav.patel@gmail.com",
@@ -211,15 +223,15 @@
           "rollNo": "S-205"
         }
       ],
-      "enrolledBatches": [],
-      "feeStatus": "PENDING",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
+      "_id": "6af420766bb793c388e4eee5",
+      "enrolledBatches": [],
+      "feeStatus": "PENDING",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.687Z"
+      "updatedAt": "2026-11-11T12:51:58.644Z"
     },
     {
-      "_id": "6af420766bb793c388e4eee6",
       "id": "admin_root",
       "name": "Platform Super-Admin",
       "email": "admin@edumaster.io",
@@ -228,13 +240,14 @@
       "passwordHash": "$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6",
       "role": "SUPER_ADMIN",
       "tuitionId": "system_root",
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "_id": "6af420766bb793c388e4eee6",
       "tenants": [],
       "enrolledBatches": [],
       "feeStatus": "PENDING",
-      "isActive": true,
-      "createdAt": "2026-01-01T00:00:00.000Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.687Z"
+      "updatedAt": "2026-11-11T12:51:58.644Z"
     },
     {
       "_id": "6af420766bb793c388e4eee7",
@@ -253,7 +266,7 @@
       "isActive": true,
       "createdAt": "2026-11-11T07:10:12.654Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.687Z"
+      "updatedAt": "2026-11-11T12:51:58.644Z"
     },
     {
       "_id": "6af420766bb793c388e4eee8",
@@ -272,7 +285,7 @@
       "isActive": true,
       "createdAt": "2026-11-11T07:10:36.877Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.687Z"
+      "updatedAt": "2026-11-11T12:51:58.644Z"
     },
     {
       "_id": "6af420766bb793c388e4eee9",
@@ -290,7 +303,7 @@
       "isActive": true,
       "createdAt": "2026-11-11T07:10:36.877Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.687Z"
+      "updatedAt": "2026-11-11T12:51:58.644Z"
     },
     {
       "_id": "6af420766bb793c388e4eeea",
@@ -309,7 +322,7 @@
       "isActive": true,
       "createdAt": "2026-11-11T07:11:06.066Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.687Z"
+      "updatedAt": "2026-11-11T12:51:58.644Z"
     },
     {
       "_id": "6af420766bb793c388e4eeeb",
@@ -327,7 +340,7 @@
       "isActive": true,
       "createdAt": "2026-11-11T07:11:06.066Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.687Z"
+      "updatedAt": "2026-11-11T12:51:58.644Z"
     },
     {
       "_id": "6af420766bb793c388e4eeec",
@@ -346,7 +359,7 @@
       "isActive": true,
       "createdAt": "2026-11-11T07:47:51.523Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.687Z"
+      "updatedAt": "2026-11-11T12:51:58.644Z"
     },
     {
       "_id": "6af420766bb793c388e4eeed",
@@ -364,7 +377,7 @@
       "isActive": true,
       "createdAt": "2026-11-11T07:47:51.524Z",
       "__v": 0,
-      "updatedAt": "2026-11-11T08:00:56.687Z"
+      "updatedAt": "2026-11-11T12:51:58.644Z"
     },
     {
       "_id": "6af420b830f869450ae63d8e",
@@ -382,7 +395,7 @@
       "role": "TEACHER",
       "tenants": [],
       "tuitionId": "t_inst_1794384056687",
-      "updatedAt": "2026-11-11T08:00:56.687Z",
+      "updatedAt": "2026-11-11T12:51:58.644Z",
       "username": "vikram_6686"
     },
     {
@@ -396,7 +409,13 @@
       "role": "TEACHER",
       "tuitionId": "t_inst_1794392424797",
       "isActive": true,
-      "createdAt": "2026-11-11T10:20:24.797Z"
+      "createdAt": "2026-11-11T10:20:24.798Z",
+      "_id": "6af4416830f869450ae64250",
+      "__v": 0,
+      "enrolledBatches": [],
+      "feeStatus": "PENDING",
+      "tenants": [],
+      "updatedAt": "2026-11-11T12:51:58.644Z"
     },
     {
       "id": "u_student_1794392424805",
@@ -410,7 +429,24 @@
       "tenants": [],
       "enrolledBatches": [],
       "isActive": true,
-      "createdAt": "2026-11-11T10:20:24.805Z"
+      "createdAt": "2026-11-11T12:51:58.529Z",
+      "_id": "6af464ee30f869450ae64840",
+      "__v": 0,
+      "feeStatus": "PENDING",
+      "updatedAt": "2026-11-11T12:51:58.644Z"
+    },
+    {
+      "id": "u_teacher_1794401805029",
+      "name": "Prof. EndToEnd",
+      "email": "e2e_teacher@test.com",
+      "username": "e2e_teacher",
+      "phone": "9988776655",
+      "passwordHash": "pbkdf2$f4bbd78accc5035c5ee6b69fce813ba6$683743f929a7bdfa36303d7d1ce02af2cc844c01ae5105b0dd2cc842b39d0d84",
+      "registrationJoinCode": "ENDTOEND-929",
+      "role": "TEACHER",
+      "tuitionId": "t_inst_1794401805029",
+      "isActive": true,
+      "createdAt": "2026-11-11T12:56:45.029Z"
     }
   ]
 }

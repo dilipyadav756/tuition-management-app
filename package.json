@@ -8,7 +8,8 @@
     "server": "node server.js",
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:db": "node scripts/test_db_crud.js"
   },
   "dependencies": {
     "cors": "^2.8.6",

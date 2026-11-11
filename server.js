@@ -5,7 +5,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import { connectMongo, isMongoConnected } from './models/db.js';
+import { connectMongo, isMongoConnected, getActiveDatabaseSource } from './models/db.js';
 
 // Load environment variables from .env
 dotenv.config();
@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 
 // Initialize Express App
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Middleware: CORS
@@ -59,7 +59,8 @@ app.get('/api/health', (req, res) => {
     status: 'healthy',
     platform: 'EduMaster Tuition Management Platform',
     version: '2.0.0',
-    database: isMongoConnected() ? 'MongoDB Atlas (Cloud)' : 'Persistent File Storage (JSON fallback)',
+    database: getActiveDatabaseSource(),
+    isMongoConnected: isMongoConnected(),
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     environment: NODE_ENV

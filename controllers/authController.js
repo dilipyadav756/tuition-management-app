@@ -302,7 +302,7 @@ export const joinBatch = async (req, res) => {
 
     if (!student.tuitionId) student.tuitionId = tuition.id;
 
-    saveDb();
+    await saveDb();
 
     return res.status(200).json({
       success: true,
@@ -357,7 +357,7 @@ export const regenerateBatchCode = async (req, res) => {
       batch = { id: batchId, joinCode: newCode, name: 'Batch' };
     }
 
-    saveDb();
+    await saveDb();
 
     return res.status(200).json({
       success: true,
@@ -468,7 +468,7 @@ export const registerStudent = async (req, res) => {
     };
 
     db.users.push(newStudent);
-    saveDb();
+    await saveDb();
 
     // 5. Generate session token
     const token = generateToken({
@@ -533,7 +533,7 @@ export const regenerateTeacherJoinCode = async (req, res) => {
       tuition.joinCode = newCode;
     }
 
-    saveDb();
+    await saveDb();
 
     return res.status(200).json({
       success: true,
@@ -633,7 +633,7 @@ export const registerTeacher = async (req, res) => {
       createdAt: new Date().toISOString()
     };
     db.users.push(newTeacher);
-    saveDb();
+    await saveDb();
 
     // 3. Sign JWT Token with tenancy claims
     const token = generateToken({
