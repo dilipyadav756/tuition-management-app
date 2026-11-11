@@ -517,12 +517,31 @@ export default function App({
   });
 
   const [batches, setBatches] = useState<Batch[]>(() => {
+    let list: Batch[] = DEFAULT_BATCHES;
     try {
       const saved = localStorage.getItem('tm_batches');
-      return saved ? JSON.parse(saved) : DEFAULT_BATCHES;
-    } catch {
-      return DEFAULT_BATCHES;
+      if (saved) list = JSON.parse(saved);
+    } catch {}
+
+    if (currentUser && (currentUser.role === 'TEACHER' || currentUser.role === 'teacher')) {
+      const tid = currentUser.tuitionId || currentUser.id;
+      if (tid && !list.some(b => b.teacherId === tid || b.teacherId === currentUser.id || b.teacherId === currentUser.tuitionId)) {
+        const initialBatch: Batch = {
+          id: `b_${Date.now()}`,
+          teacherId: tid,
+          name: 'Foundation Batch (Class 10)',
+          subject: currentUser.tuitionName || 'General Academics',
+          joinCode: String(Math.floor(100000 + Math.random() * 900000)),
+          monthlyFee: 2500,
+          schedule: 'Mon, Wed, Fri (5:00 PM - 6:30 PM)'
+        };
+        list = [...list, initialBatch];
+        try {
+          localStorage.setItem('tm_batches', JSON.stringify(list));
+        } catch {}
+      }
     }
+    return list;
   });
 
   const [joinRequests, setJoinRequests] = useState<BatchJoinRequest[]>(() => {
@@ -656,7 +675,7 @@ export default function App({
         if (u.role === 'TEACHER' || u.role === 'teacher') return u.id;
       }
       const savedTeacherId = localStorage.getItem('tm_current_teacher_id');
-      if (savedTeacherId && (savedTeacherId === 't1' || savedTeacherId === 't2')) return savedTeacherId;
+      if (savedTeacherId) return savedTeacherId;
     } catch {}
     return 't1';
   });
@@ -686,17 +705,21 @@ export default function App({
 
   // --- TEACHER PROFILE PIN AUTHENTICATION STATE ---
   const [isTeacherUnlocked, setIsTeacherUnlocked] = useState<boolean>(() => {
+    // Authenticated sessions are unlocked
+    if (currentUser && (currentUser.role === 'TEACHER' || currentUser.role === 'teacher')) {
+      return true;
+    }
     try {
       const savedAuth = localStorage.getItem('tm_auth_user');
       if (savedAuth) {
         const u = JSON.parse(savedAuth);
-        if (u.role === 'TEACHER' || u.role === 'teacher') {
-          const tid = u.tuitionId || u.id;
-          return sessionStorage.getItem(`tm_unlocked_${tid}`) === 'true';
-        }
+        if (u.role === 'TEACHER' || u.role === 'teacher') return true;
       }
+      const tid = localStorage.getItem('tm_current_teacher_id') || 't1';
+      const isUnlocked = sessionStorage.getItem(`tm_unlocked_${tid}`);
+      if (isUnlocked !== null) return isUnlocked === 'true';
     } catch {}
-    return false;
+    return true; // Default unlocked so users are not blocked on page refresh
   });
   const [teacherPinInput, setTeacherPinInput] = useState<string>('');
   const [teacherPinError, setTeacherPinError] = useState<string>('');
@@ -1061,21 +1084,12 @@ export default function App({
 
   // --- ENTITY RESOLUTION & STRICT RBAC DATA ISOLATION ---
   const activeTeacher = useMemo<Teacher>(() => {
-    // PUBLIC PREVIEW: Strictly isolate public visitors to demo instructors only
-    if (!currentUser) {
-      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
-      return DEFAULT_TEACHERS.find(t => t.id === demoId) || DEFAULT_TEACHERS[0];
-    }
-    if (currentTeacherId) {
-      const found = teachers.find(t => t.id === currentTeacherId);
-      if (found) return found;
-    }
+    const effectiveId = currentTeacherId || currentUser?.tuitionId || currentUser?.id || 't1';
+    const found = teachers.find(t => t.id === effectiveId || (currentUser && (t.id === currentUser.id || t.id === currentUser.tuitionId)));
+    if (found) return found;
+
     if (currentUser && (currentUser.role === 'TEACHER' || currentUser.role === 'teacher')) {
       const tid = currentUser.tuitionId || currentUser.id || currentTeacherId;
-      if (tid) {
-        const match = teachers.find(t => t.id === tid);
-        if (match) return match;
-      }
       return {
         id: tid || 'unassigned',
         name: currentUser.name || 'Instructor',
@@ -1090,17 +1104,7 @@ export default function App({
         resultsHeadline: 'New Academic Batches Now Open for Enrollment!'
       };
     }
-    return {
-      id: currentTeacherId || '',
-      name: currentTeacherId ? 'Tuition Instructor' : 'No Teacher Selected',
-      subject: 'Academics',
-      email: '',
-      phone: '',
-      upiId: '',
-      location: '',
-      bio: '',
-      resultsHeadline: ''
-    };
+    return DEFAULT_TEACHERS.find(t => t.id === effectiveId) || DEFAULT_TEACHERS[0];
   }, [teachers, currentTeacherId, currentUser]);
 
   // Unique Tuition Registration Join Code for active teacher
@@ -1173,22 +1177,23 @@ export default function App({
     };
   }, [students, currentStudentId, currentTeacherId, currentUser]);
 
-  // Batches strictly belonging to the active teacher (isolated to demo in preview)
+  // Batches strictly belonging to the active teacher
   const teacherBatchesList = useMemo(() => {
-    if (!currentUser) {
-      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
-      return DEFAULT_BATCHES.filter(b => b.teacherId === demoId);
-    }
-    return batches.filter(b => b.teacherId === currentTeacherId);
+    const effectiveTeacherId = currentTeacherId || currentUser?.tuitionId || currentUser?.id || 't1';
+    return batches.filter(b => 
+      b.teacherId === effectiveTeacherId || 
+      (currentUser && (b.teacherId === currentUser.id || b.teacherId === currentUser.tuitionId))
+    );
   }, [batches, currentTeacherId, currentUser]);
 
   // Pending join requests strictly for the active teacher
   const teacherPendingRequests = useMemo(() => {
-    if (!currentUser) {
-      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
-      return DEFAULT_JOIN_REQUESTS.filter(r => r.teacherId === demoId && r.status === 'Pending');
-    }
-    return joinRequests.filter(r => r.teacherId === currentTeacherId && r.status === 'Pending');
+    const effectiveTeacherId = currentTeacherId || currentUser?.tuitionId || currentUser?.id || 't1';
+    return joinRequests.filter(r => 
+      (r.teacherId === effectiveTeacherId || 
+       (currentUser && (r.teacherId === currentUser.id || r.teacherId === currentUser.tuitionId))) && 
+      r.status === 'Pending'
+    );
   }, [joinRequests, currentTeacherId, currentUser]);
 
   // Detected batch for student code input
@@ -1415,13 +1420,13 @@ export default function App({
     }
   };
 
-  // Students strictly enrolled under the active teacher (isolated to demo in preview)
+  // Students strictly enrolled under the active teacher
   const teacherStudents = useMemo(() => {
-    if (!currentUser) {
-      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
-      return DEFAULT_STUDENTS.filter(s => s.teacherId === demoId);
-    }
-    return students.filter(s => s.teacherId === currentTeacherId);
+    const effectiveTeacherId = currentTeacherId || currentUser?.tuitionId || currentUser?.id || 't1';
+    return students.filter(s => 
+      s.teacherId === effectiveTeacherId || 
+      (currentUser && (s.teacherId === currentUser.id || s.teacherId === currentUser.tuitionId))
+    );
   }, [students, currentTeacherId, currentUser]);
 
   const teacherBatchNames = useMemo(() => {
@@ -1474,31 +1479,31 @@ export default function App({
 
   // STRICT RBAC: Content Filtering (Notes & Tests never leak across teachers or student batches)
   const visibleNotes = useMemo(() => {
-    if (!currentUser) {
-      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
-      return DEFAULT_NOTES.filter(n => n.teacherId === demoId);
-    }
+    const effectiveTeacherId = currentTeacherId || currentUser?.tuitionId || currentUser?.id || 't1';
     if (currentRole === 'teacher') {
-      return notes.filter(n => n.teacherId === currentTeacherId);
+      return notes.filter(n => 
+        n.teacherId === effectiveTeacherId || 
+        (currentUser && (n.teacherId === currentUser.id || n.teacherId === currentUser.tuitionId))
+      );
     }
     // Student only sees notes strictly for their enrolled batch & teacher
     return notes.filter(n => 
-      n.teacherId === activeStudent.teacherId && 
+      (n.teacherId === activeStudent.teacherId || n.teacherId === effectiveTeacherId) && 
       (n.batch === activeStudent.batch || n.batch === 'ALL' || n.batch === 'All Batches')
     );
   }, [notes, currentRole, currentTeacherId, activeStudent, currentUser]);
 
   const visibleTests = useMemo(() => {
-    if (!currentUser) {
-      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
-      return DEFAULT_TESTS.filter(t => t.teacherId === demoId);
-    }
+    const effectiveTeacherId = currentTeacherId || currentUser?.tuitionId || currentUser?.id || 't1';
     if (currentRole === 'teacher') {
-      return tests.filter(t => t.teacherId === currentTeacherId);
+      return tests.filter(t => 
+        t.teacherId === effectiveTeacherId || 
+        (currentUser && (t.teacherId === currentUser.id || t.teacherId === currentUser.tuitionId))
+      );
     }
     // Student only sees quizzes strictly for their enrolled batch & teacher
     return tests.filter(t => 
-      t.teacherId === activeStudent.teacherId && 
+      (t.teacherId === activeStudent.teacherId || t.teacherId === effectiveTeacherId) && 
       (t.batch === activeStudent.batch || t.batch === 'ALL' || t.batch === 'All Batches')
     );
   }, [tests, currentRole, currentTeacherId, activeStudent, currentUser]);

@@ -128,9 +128,13 @@ export default function LoginPage({
         if (res && res.success && res.data) {
           setLoading(false);
           const authData = res.data;
+          const targetTeacherId = authData.user.tuitionId || authData.user.id;
           localStorage.setItem('tm_auth_token', authData.token);
-          localStorage.setItem('tm_current_teacher_id', authData.user.id);
+          localStorage.setItem('tm_current_teacher_id', targetTeacherId);
           localStorage.setItem('tm_auth_user', JSON.stringify(authData.user));
+          try {
+            sessionStorage.setItem(`tm_unlocked_${targetTeacherId}`, 'true');
+          } catch {}
           setSuccessMessage('Instructor authenticated successfully! Redirecting...');
           if (onLoginSuccess) {
             setTimeout(() => onLoginSuccess(authData), 600);
@@ -266,9 +270,46 @@ export default function LoginPage({
         if (res && res.success && res.data) {
           setLoading(false);
           const authData = res.data;
+          const targetTeacherId = authData.user.tuitionId || authData.user.id;
           localStorage.setItem('tm_auth_token', authData.token);
-          localStorage.setItem('tm_current_teacher_id', authData.user.id);
+          localStorage.setItem('tm_current_teacher_id', targetTeacherId);
           localStorage.setItem('tm_auth_user', JSON.stringify(authData.user));
+          try {
+            sessionStorage.setItem(`tm_unlocked_${targetTeacherId}`, 'true');
+            // Seed teacher into local teachers list if missing
+            const rawTeachers = localStorage.getItem('tm_teachers');
+            const teacherList = rawTeachers ? JSON.parse(rawTeachers) : [];
+            if (!teacherList.some(t => t.id === targetTeacherId)) {
+              teacherList.push({
+                id: targetTeacherId,
+                name: authData.user.name,
+                subject: authData.user.tuitionName || 'Tuition Center',
+                email: authData.user.email,
+                phone: authData.user.phone,
+                pin: regPin.trim() || '1234',
+                upiId: '',
+                location: authData.user.tuitionName || '',
+                bio: `Dedicated tuition center led by ${authData.user.name}.`,
+                resultsHeadline: 'New Academic Batches Now Open for Enrollment!'
+              });
+              localStorage.setItem('tm_teachers', JSON.stringify(teacherList));
+            }
+            // Seed initial batch into local batches list if missing
+            const rawBatches = localStorage.getItem('tm_batches');
+            const batchList = rawBatches ? JSON.parse(rawBatches) : [];
+            if (!batchList.some(b => b.teacherId === targetTeacherId)) {
+              batchList.push({
+                id: `b_${Date.now()}`,
+                teacherId: targetTeacherId,
+                name: 'Foundation Batch (Class 10)',
+                subject: authData.user.tuitionName || 'General Academics',
+                joinCode: String(Math.floor(100000 + Math.random() * 900000)),
+                monthlyFee: 2500,
+                schedule: 'Mon, Wed, Fri (5:00 PM - 6:30 PM)'
+              });
+              localStorage.setItem('tm_batches', JSON.stringify(batchList));
+            }
+          } catch {}
           setSuccessMessage('Tuition Center and Instructor created successfully! Redirecting...');
           if (onLoginSuccess) {
             setTimeout(() => onLoginSuccess(authData), 600);
