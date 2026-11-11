@@ -3,7 +3,8 @@ import TuitionPortal from '../tuition_management_portal';
 import LoginPage from './components/LoginPage';
 import SuperAdminWorkspace from './components/SuperAdminWorkspace';
 import SuperAdminLogin from './components/SuperAdminLogin';
-import { Key, Lock, X, Sparkles, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import TeacherAuthModal from './components/TeacherAuthModal';
+import { Key, Lock, X, Sparkles, ArrowRight, ShieldCheck, AlertCircle, GraduationCap } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
@@ -17,6 +18,7 @@ export default function App() {
 
   const [showLoginScreen, setShowLoginScreen] = useState(false);
   const [showAdminPasskeyModal, setShowAdminPasskeyModal] = useState(false);
+  const [showTeacherAuthModal, setShowTeacherAuthModal] = useState(false);
 
   const handleLoginSuccess = (authData) => {
     const user = authData?.user || authData;
@@ -133,6 +135,16 @@ export default function App() {
           <span className="hidden sm:inline">👑 Super-Admin</span>
         </button>
 
+        {/* Teacher Auth Modal Pill */}
+        <button
+          onClick={() => setShowTeacherAuthModal(true)}
+          className="bg-slate-900/95 hover:bg-slate-800 text-indigo-300 px-3.5 py-2.5 rounded-2xl text-xs font-bold shadow-2xl border border-indigo-700/80 flex items-center space-x-1.5 backdrop-blur-md transition-all cursor-pointer hover:border-indigo-400"
+          title="Open Teacher Login & Center Onboarding"
+        >
+          <GraduationCap className="w-3.5 h-3.5 text-indigo-400" />
+          <span className="hidden sm:inline">👨‍🏫 Teacher Portal</span>
+        </button>
+
         {/* Toggle Login Page Pill */}
         <button
           onClick={() => setShowLoginScreen(true)}
@@ -142,6 +154,18 @@ export default function App() {
           <span>🔐 Login Screen</span>
         </button>
       </div>
+
+      {/* DYNAMIC TEACHER AUTHENTICATION & ONBOARDING MODAL */}
+      {showTeacherAuthModal && (
+        <TeacherAuthModal
+          isOpen={showTeacherAuthModal}
+          onClose={() => setShowTeacherAuthModal(false)}
+          onSuccess={(authData) => {
+            setShowTeacherAuthModal(false);
+            handleLoginSuccess(authData);
+          }}
+        />
+      )}
 
       {/* SECURE SUPER-ADMIN AUTHENTICATION MODAL */}
       {showAdminPasskeyModal && (

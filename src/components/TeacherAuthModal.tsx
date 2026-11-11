@@ -437,10 +437,10 @@ export default function TeacherAuthModal({
             /* --------------------------------------------------------------- */
             <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
               
-              {/* Tuition / Coaching Center Name */}
+              {/* Tuition Center Name */}
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-slate-300">
-                  Tuition / Coaching Center Name
+                  Tuition Center Name
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -457,10 +457,10 @@ export default function TeacherAuthModal({
                 </div>
               </div>
 
-              {/* Owner / Lead Teacher Name */}
+              {/* Lead Teacher Name */}
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-slate-300">
-                  Owner / Lead Teacher Name
+                  Lead Teacher Name
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -477,10 +477,10 @@ export default function TeacherAuthModal({
                 </div>
               </div>
 
-              {/* Username or Registered Email */}
+              {/* Email / Username */}
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-slate-300">
-                  Username or Registered Email
+                  Email / Username
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -569,3 +569,4 @@ export default function TeacherAuthModal({
     </div>
   );
 }
+

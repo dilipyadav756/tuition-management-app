@@ -104,3 +104,4 @@ export const getStudentReceipt = async (req, res) => {
 export default {
   getStudentReceipt
 };
+
