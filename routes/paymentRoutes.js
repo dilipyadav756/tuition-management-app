@@ -9,12 +9,18 @@ import {
 const router = express.Router();
 
 /**
- * @route   GET /api/payment/upi-id/:teacherId?
+ * @route   GET /api/payment/upi-id or /api/payment/upi-id/:teacherId
  * @desc    Get configured UPI ID for student payment modal or teacher dashboard
  * @access  Authenticated (TEACHER, TUITION_OWNER, STUDENT, SUPER_ADMIN)
  */
 router.get(
-  '/upi-id/:teacherId?',
+  '/upi-id',
+  authenticateToken,
+  getTeacherUpi
+);
+
+router.get(
+  '/upi-id/:teacherId',
   authenticateToken,
   getTeacherUpi
 );

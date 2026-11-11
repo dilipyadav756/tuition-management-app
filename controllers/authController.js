@@ -1,6 +1,6 @@
 import crypto from 'crypto';
-import { db } from '../models/db.js';
-export { db };
+import { db, saveDb } from '../models/db.js';
+export { db, saveDb };
 
 // Secret for signing JWTs (in production, read from process.env.JWT_SECRET)
 const JWT_SECRET = process.env.JWT_SECRET || 'edumaster_secure_jwt_secret_key_2026';
@@ -136,7 +136,7 @@ export const resolveJoinCode = (joinCode) => {
  */
 export const verifyBatchCode = async (req, res) => {
   try {
-    const batchCode = req.body.batchCode || req.query.batchCode;
+    const batchCode = req.body.batchCode || req.body.joinCode || req.body.code || req.query.batchCode || req.query.joinCode;
     if (!batchCode) {
       return res.status(400).json({
         success: false,
@@ -302,6 +302,8 @@ export const joinBatch = async (req, res) => {
 
     if (!student.tuitionId) student.tuitionId = tuition.id;
 
+    saveDb();
+
     return res.status(200).json({
       success: true,
       message: `Successfully joined ${batch.name} with ${teacher.name}!`,
@@ -354,6 +356,8 @@ export const regenerateBatchCode = async (req, res) => {
       // Create or update mock batch if needed
       batch = { id: batchId, joinCode: newCode, name: 'Batch' };
     }
+
+    saveDb();
 
     return res.status(200).json({
       success: true,
@@ -464,6 +468,7 @@ export const registerStudent = async (req, res) => {
     };
 
     db.users.push(newStudent);
+    saveDb();
 
     // 5. Generate session token
     const token = generateToken({
@@ -527,6 +532,8 @@ export const regenerateTeacherJoinCode = async (req, res) => {
       tuition.code = newCode;
       tuition.joinCode = newCode;
     }
+
+    saveDb();
 
     return res.status(200).json({
       success: true,
@@ -626,6 +633,7 @@ export const registerTeacher = async (req, res) => {
       createdAt: new Date().toISOString()
     };
     db.users.push(newTeacher);
+    saveDb();
 
     // 3. Sign JWT Token with tenancy claims
     const token = generateToken({
@@ -672,8 +680,8 @@ export const registerTeacher = async (req, res) => {
  */
 export const teacherLogin = async (req, res) => {
   try {
-    const rawId = req.body.username || req.body.email || req.body.identifier || req.body.emailOrUsername;
-    const password = req.body.password;
+    const rawId = req.body.username || req.body.email || req.body.identifier || req.body.emailOrUsername || req.body.teacherEmailOrPhone;
+    const password = req.body.password || req.body.teacherPassword;
 
     if (!rawId || !password) {
       return res.status(400).json({

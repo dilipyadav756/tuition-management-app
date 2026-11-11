@@ -1,0 +1,217 @@
+{
+  "tuitions": [
+    {
+      "id": "t_inst_1",
+      "name": "Sharma Mathematics & Physics Academy",
+      "code": "SHARMA-101",
+      "joinCode": "849201",
+      "phone": "+91 98765 43210",
+      "ownerId": "u_teacher_1",
+      "upiId": "sharma.maths@okaxis",
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "t_inst_2",
+      "name": "Verma Science & Biology Hub",
+      "code": "VERMA-202",
+      "joinCode": "526318",
+      "phone": "+91 98123 45678",
+      "ownerId": "u_teacher_2",
+      "upiId": "anita.verma@okaxis",
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "t_inst_1794381012654",
+      "name": "Apex Academy 2653",
+      "code": "INST-587",
+      "joinCode": "INST-587",
+      "phone": "989992653",
+      "ownerId": "u_teacher_1794381012654",
+      "createdAt": "2026-11-11T07:10:12.654Z"
+    },
+    {
+      "id": "t_inst_1794381036877",
+      "name": "Apex Academy 6876",
+      "code": "INST-119",
+      "joinCode": "INST-119",
+      "phone": "9899968761",
+      "ownerId": "u_teacher_1794381036877",
+      "createdAt": "2026-11-11T07:10:36.877Z"
+    },
+    {
+      "id": "t_inst_1794381066066",
+      "name": "Apex Academy 6065",
+      "code": "INST-814",
+      "joinCode": "INST-814",
+      "phone": "9899960651",
+      "ownerId": "u_teacher_1794381066066",
+      "createdAt": "2026-11-11T07:11:06.066Z"
+    }
+  ],
+  "batches": [
+    {
+      "id": "b1",
+      "tuitionId": "t_inst_1",
+      "teacherId": "u_teacher_1",
+      "name": "Class 10 - Batch A",
+      "subject": "Mathematics & Physics",
+      "joinCode": "849201",
+      "monthlyFee": 2500,
+      "schedule": "Mon, Wed, Fri (5:00 PM - 6:30 PM)"
+    },
+    {
+      "id": "b2",
+      "tuitionId": "t_inst_1",
+      "teacherId": "u_teacher_1",
+      "name": "Class 12 - Math",
+      "subject": "Advanced Mathematics",
+      "joinCode": "713904",
+      "monthlyFee": 3000,
+      "schedule": "Tue, Thu, Sat (6:00 PM - 7:30 PM)"
+    },
+    {
+      "id": "b3",
+      "tuitionId": "t_inst_2",
+      "teacherId": "u_teacher_2",
+      "name": "Class 11 - Bio",
+      "subject": "Cell Biology & Genetics",
+      "joinCode": "526318",
+      "monthlyFee": 2800,
+      "schedule": "Mon, Thu, Sat (4:00 PM - 5:30 PM)"
+    }
+  ],
+  "users": [
+    {
+      "id": "u_teacher_1",
+      "name": "Prof. Rajesh Sharma",
+      "email": "sharma.tuitions@gmail.com",
+      "phone": "9876543210",
+      "passwordHash": "$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6",
+      "registrationJoinCode": "SHARMA-101",
+      "role": "TEACHER",
+      "tuitionId": "t_inst_1",
+      "upiId": "sharma.maths@okaxis",
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "u_teacher_2",
+      "name": "Ms. Anita Verma",
+      "email": "anita.science@gmail.com",
+      "phone": "9812345678",
+      "passwordHash": "$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6",
+      "registrationJoinCode": "VERMA-202",
+      "role": "TEACHER",
+      "tuitionId": "t_inst_2",
+      "upiId": "anita.verma@okaxis",
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "u_student_1",
+      "name": "Aarav Patel",
+      "email": "aarav.patel@gmail.com",
+      "phone": "9111122222",
+      "username": "aarav101",
+      "passwordHash": "$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6",
+      "role": "STUDENT",
+      "tenants": [
+        {
+          "tuitionId": "t_inst_1",
+          "tuitionName": "Sharma Mathematics & Physics Academy",
+          "batch": "Class 10 - Batch A",
+          "rollNo": "101"
+        },
+        {
+          "tuitionId": "t_inst_2",
+          "tuitionName": "Verma Science & Biology Hub",
+          "batch": "Class 10 - Foundation Science",
+          "rollNo": "S-205"
+        }
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "admin_root",
+      "name": "Platform Super-Admin",
+      "email": "admin@edumaster.io",
+      "phone": "9999999999",
+      "username": "admin",
+      "passwordHash": "$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6",
+      "role": "SUPER_ADMIN",
+      "tuitionId": "system_root",
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "u_teacher_1794381012654",
+      "name": "Dr. Vikram Patel 2653",
+      "email": "vikram_2653@gmail.com",
+      "username": "vikram_2653",
+      "phone": "989992653",
+      "passwordHash": "pbkdf2$9959711716862985607e1e8037586490$6de2d574d7459162b2d00e2d6eb4a5b337cfa6d4f9074896fc313427367ff725",
+      "registrationJoinCode": "INST-587",
+      "role": "TEACHER",
+      "tuitionId": "t_inst_1794381012654",
+      "isActive": true,
+      "createdAt": "2026-11-11T07:10:12.654Z"
+    },
+    {
+      "id": "u_teacher_1794381036877",
+      "name": "Dr. Vikram Patel 6876",
+      "email": "vikram_6876@gmail.com",
+      "username": "vikram_6876",
+      "phone": "9899968761",
+      "passwordHash": "pbkdf2$81b6ba2c8261bd84bc1442b3e9dadc9c$d5122caa80b85ad6ef5a57eae8eba94a0da6309d828e8d9a6eedd9dc069c1e9c",
+      "registrationJoinCode": "INST-119",
+      "role": "TEACHER",
+      "tuitionId": "t_inst_1794381036877",
+      "isActive": true,
+      "createdAt": "2026-11-11T07:10:36.877Z"
+    },
+    {
+      "id": "u_student_1794381036877",
+      "name": "Rohan Gupta 6876",
+      "email": "rohan_6876@gmail.com",
+      "phone": "9188868762",
+      "username": "9188868762",
+      "passwordHash": "pbkdf2$3f0e58b33e60ce092ee85e020fe5a62d$cb58e025ab1644febe1f8fc95c46be3a40c500e8790e910e971f827d225014e4",
+      "role": "STUDENT",
+      "tuitionId": null,
+      "tenants": [],
+      "enrolledBatches": [],
+      "isActive": true,
+      "createdAt": "2026-11-11T07:10:36.877Z"
+    },
+    {
+      "id": "u_teacher_1794381066066",
+      "name": "Dr. Vikram Patel 6065",
+      "email": "vikram_6065@gmail.com",
+      "username": "vikram_6065",
+      "phone": "9899960651",
+      "passwordHash": "pbkdf2$e36a30c64389e5c664222d6fbde9cfc7$4f00bda5604e47cec00c16b0afe142e3eb3314471b93dc6ebc67c3e38f99b2d6",
+      "registrationJoinCode": "INST-814",
+      "role": "TEACHER",
+      "tuitionId": "t_inst_1794381066066",
+      "isActive": true,
+      "createdAt": "2026-11-11T07:11:06.066Z"
+    },
+    {
+      "id": "u_student_1794381066066",
+      "name": "Rohan Gupta 6065",
+      "email": "rohan_6065@gmail.com",
+      "phone": "9188860652",
+      "username": "9188860652",
+      "passwordHash": "pbkdf2$c6aa5c74b17c889889644e6ab848a421$637fcdebaa9e8454cf397c8935007da67b13ec0ec08d573ceca83e560bf056f3",
+      "role": "STUDENT",
+      "tuitionId": null,
+      "tenants": [],
+      "enrolledBatches": [],
+      "isActive": true,
+      "createdAt": "2026-11-11T07:11:06.066Z"
+    }
+  ]
+}

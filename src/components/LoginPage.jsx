@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import DemoTuitionCenters from './DemoTuitionCenters';
 import SuperAdminLogin from './SuperAdminLogin';
+import api from '../services/api';
 import { 
   GraduationCap, 
   ShieldCheck, 
@@ -121,7 +122,31 @@ export default function LoginPage({
     setLoading(true);
 
     try {
-      // Simulating API verification:
+      // 1. Attempt Real Backend API Authentication
+      try {
+        const res = await api.auth.teacherLogin({ teacherEmailOrPhone, teacherPassword });
+        if (res && res.success && res.data) {
+          setLoading(false);
+          const authData = res.data;
+          localStorage.setItem('tm_auth_token', authData.token);
+          localStorage.setItem('tm_current_teacher_id', authData.user.id);
+          localStorage.setItem('tm_auth_user', JSON.stringify(authData.user));
+          setSuccessMessage('Instructor authenticated successfully! Redirecting...');
+          if (onLoginSuccess) {
+            setTimeout(() => onLoginSuccess(authData), 600);
+          }
+          return;
+        }
+      } catch (apiErr) {
+        if (apiErr.status === 400 || apiErr.status === 401) {
+          setLoading(false);
+          setErrorMessage(apiErr.message || 'Invalid teacher credentials.');
+          return;
+        }
+        console.warn('Backend API unavailable, falling back to local verification:', apiErr.message);
+      }
+
+      // 2. Offline / Demo Fallback
       setTimeout(() => {
         setLoading(false);
 
@@ -213,22 +238,55 @@ export default function LoginPage({
   const handleTeacherRegister = async (e) => {
     e.preventDefault();
     setErrorMessage('');
-    setLoading(true);
 
     if (regPassword.length < 6) {
-      setLoading(false);
       setErrorMessage('Password must be at least 6 characters long.');
       return;
     }
 
     if (regPin.trim().length !== 4) {
-      setLoading(false);
       setErrorMessage('Workspace 4-Digit PIN must be exactly 4 digits.');
       return;
     }
 
-    setTimeout(() => {
-      setLoading(false);
+    setLoading(true);
+
+    try {
+      // 1. Attempt Real Backend API Registration
+      try {
+        const res = await api.auth.teacherRegister({
+          tuitionName: regTuitionName.trim(),
+          teacherName: regTeacherName.trim(),
+          email: regEmail.trim(),
+          phone: regPhone.trim(),
+          password: regPassword,
+          pin: regPin.trim()
+        });
+
+        if (res && res.success && res.data) {
+          setLoading(false);
+          const authData = res.data;
+          localStorage.setItem('tm_auth_token', authData.token);
+          localStorage.setItem('tm_current_teacher_id', authData.user.id);
+          localStorage.setItem('tm_auth_user', JSON.stringify(authData.user));
+          setSuccessMessage('Tuition Center and Instructor created successfully! Redirecting...');
+          if (onLoginSuccess) {
+            setTimeout(() => onLoginSuccess(authData), 600);
+          }
+          return;
+        }
+      } catch (apiErr) {
+        if (apiErr.status === 400 || apiErr.status === 409) {
+          setLoading(false);
+          setErrorMessage(apiErr.message || 'Registration failed.');
+          return;
+        }
+        console.warn('Backend API unavailable, falling back to local registration:', apiErr.message);
+      }
+
+      // 2. Offline / Demo Fallback
+      setTimeout(() => {
+        setLoading(false);
       const newTuitionId = `t_${Date.now()}`;
       const authData = {
         token: 'jwt_mock_token_new_inst_' + Date.now(),
@@ -327,7 +385,11 @@ export default function LoginPage({
         setTimeout(() => onLoginSuccess(authData), 800);
       }
     }, 900);
-  };
+  } catch (err) {
+    setLoading(false);
+    setErrorMessage(err.message || 'Teacher registration error.');
+  }
+};
 
   // 3. Student Login Submit
   const handleStudentLogin = async (e) => {
@@ -335,8 +397,44 @@ export default function LoginPage({
     setErrorMessage('');
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      // 1. Attempt Real Backend API Authentication
+      try {
+        const res = await api.auth.login({
+          identifier: studentIdentifier.trim(),
+          password: studentPassword,
+          role: 'STUDENT',
+          otp: studentAuthMethod === 'OTP' ? studentOtp : undefined
+        });
+
+        if (res && res.success && res.data) {
+          setLoading(false);
+          const authData = res.data;
+          if (authData.needsTenantSelection) {
+            setTenantSwitcherData(authData);
+            return;
+          }
+          localStorage.setItem('tm_auth_token', authData.token);
+          localStorage.setItem('tm_current_student_id', authData.user.id);
+          localStorage.setItem('tm_auth_user', JSON.stringify(authData.user));
+          setSuccessMessage(`Welcome back, ${authData.user.name}!`);
+          if (onLoginSuccess) {
+            setTimeout(() => onLoginSuccess(authData), 600);
+          }
+          return;
+        }
+      } catch (apiErr) {
+        if (apiErr.status === 400 || apiErr.status === 401) {
+          setLoading(false);
+          setErrorMessage(apiErr.message || 'Invalid student credentials.');
+          return;
+        }
+        console.warn('Backend API unavailable, falling back to local student verification:', apiErr.message);
+      }
+
+      // 2. Offline / Demo Fallback
+      setTimeout(() => {
+        setLoading(false);
 
       // A. Check dynamically registered student accounts from localStorage first
       try {
@@ -467,7 +565,11 @@ export default function LoginPage({
       });
 
     }, 700);
-  };
+  } catch (err) {
+    setLoading(false);
+    setErrorMessage(err.message || 'Student login error.');
+  }
+};
 
   // 3B. Student Self-Registration Submit
   const handleStudentRegister = async (e) => {
@@ -519,8 +621,41 @@ export default function LoginPage({
 
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      // 1. Attempt Real Backend API Registration
+      try {
+        const res = await api.auth.studentRegister({
+          name: regStudentName.trim(),
+          phone: cleanPhone,
+          email: cleanEmail,
+          password: regStudentPassword,
+          confirmPassword: regStudentConfirmPassword
+        });
+
+        if (res && res.success && res.data) {
+          setLoading(false);
+          const authData = res.data;
+          localStorage.setItem('tm_auth_token', authData.token);
+          localStorage.setItem('tm_current_student_id', authData.user.id);
+          localStorage.setItem('tm_auth_user', JSON.stringify(authData.user));
+          setSuccessMessage(`Welcome, ${authData.user.name}! Your student account is active.`);
+          if (onLoginSuccess) {
+            setTimeout(() => onLoginSuccess(authData), 600);
+          }
+          return;
+        }
+      } catch (apiErr) {
+        if (apiErr.status === 400 || apiErr.status === 409) {
+          setLoading(false);
+          setErrorMessage(apiErr.message || 'Student registration failed.');
+          return;
+        }
+        console.warn('Backend API unavailable, falling back to local student registration:', apiErr.message);
+      }
+
+      // 2. Offline / Demo Fallback
+      setTimeout(() => {
+        setLoading(false);
       const newStudentId = `s_${Date.now()}`;
 
       // 1. Save independent student account (initially unassociated with any teacher or batch)
@@ -574,7 +709,11 @@ export default function LoginPage({
         setTimeout(() => onLoginSuccess(authData), 700);
       }
     }, 700);
-  };
+  } catch (err) {
+    setLoading(false);
+    setErrorMessage(err.message || 'Student registration error.');
+  }
+};
 
   // 4. Request OTP for Student
   const handleSendOtp = () => {

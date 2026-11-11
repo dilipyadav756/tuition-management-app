@@ -1,4 +1,4 @@
-import { db } from '../models/db.js';
+import { db, saveDb } from '../models/db.js';
 
 /**
  * Validates standard Indian UPI Virtual Payment Address (VPA) format.
@@ -103,6 +103,9 @@ export const updateTeacherUpi = async (req, res) => {
     if (tuitionRecord) {
       tuitionRecord.upiId = sanitizedUpiId;
     }
+
+    // Persist to disk
+    saveDb();
 
     console.log(`[Payment Audit] Teacher ${user.name} (${user.userId}) updated UPI ID to: ${sanitizedUpiId}`);
 

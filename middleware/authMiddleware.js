@@ -76,7 +76,7 @@ export const authorizeRoles = (...allowedRoles) => {
  * Verifies that the resource's tuitionId matches the requester's active tenant
  */
 export const enforceTenantIsolation = (req, res, next) => {
-  const targetTuitionId = req.params.tuitionId || req.body.tuitionId || req.query.tuitionId;
+  const targetTuitionId = req.params?.tuitionId || req.body?.tuitionId || req.query?.tuitionId;
 
   if (targetTuitionId && req.user.role !== 'SUPER_ADMIN') {
     if (req.user.tuitionId !== targetTuitionId) {
