@@ -124,17 +124,6 @@ export default function App() {
     <div className="relative">
       {/* FLOATING ACTION PILLS */}
       <div className="fixed bottom-4 right-4 z-50 flex items-center space-x-2">
-        {/* Passkey Super-Admin Access Button */}
-        <button
-          onClick={() => setShowAdminPasskeyModal(true)}
-          className="bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 hover:border-purple-400 text-purple-200 px-3.5 py-2.5 rounded-2xl text-xs font-bold shadow-2xl border border-purple-700/80 flex items-center space-x-1.5 backdrop-blur-md transition-all cursor-pointer"
-          title="Open Super-Admin App Owner Console"
-        >
-          <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
-          <Key className="w-3.5 h-3.5 text-purple-400" />
-          <span className="hidden sm:inline">👑 Super-Admin</span>
-        </button>
-
         {/* Teacher Auth Modal Pill */}
         <button
           onClick={() => setShowTeacherAuthModal(true)}
