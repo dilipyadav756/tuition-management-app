@@ -4,6 +4,8 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+import { connectMongo, isMongoConnected } from './models/db.js';
 
 // Load environment variables from .env
 dotenv.config();
@@ -57,6 +59,7 @@ app.get('/api/health', (req, res) => {
     status: 'healthy',
     platform: 'EduMaster Tuition Management Platform',
     version: '2.0.0',
+    database: isMongoConnected() ? 'MongoDB Atlas (Cloud)' : 'Persistent File Storage (JSON fallback)',
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     environment: NODE_ENV
@@ -66,6 +69,9 @@ app.get('/api/health', (req, res) => {
 // Dynamic Import & Route Mount
 async function startServer() {
   try {
+    // 1. Connect to MongoDB Atlas (if MONGODB_URI is provided)
+    await connectMongo();
+
     const authRoutes = (await import('./routes/authRoutes.js')).default;
     const paymentRoutes = (await import('./routes/paymentRoutes.js')).default;
     const studentRoutes = (await import('./routes/student.js')).default;
@@ -128,8 +134,16 @@ async function startServer() {
     });
 
     // Graceful Shutdown
-    const handleShutdown = (signal) => {
+    const handleShutdown = async (signal) => {
       console.log(`\n[Server] Received ${signal}. Shutting down gracefully...`);
+      try {
+        if (mongoose.connection.readyState === 1) {
+          await mongoose.connection.close();
+          console.log('[Database] MongoDB connection closed.');
+        }
+      } catch (dbCloseErr) {
+        console.warn('[Database] Error closing MongoDB:', dbCloseErr.message);
+      }
       server.close(() => {
         console.log('[Server] Closed all pending connections.');
         process.exit(0);

@@ -48,6 +48,15 @@
       "phone": "9899960651",
       "ownerId": "u_teacher_1794381066066",
       "createdAt": "2026-11-11T07:11:06.066Z"
+    },
+    {
+      "id": "t_inst_1794383271523",
+      "name": "Apex Academy 1522",
+      "code": "INST-219",
+      "joinCode": "INST-219",
+      "phone": "9899915221",
+      "ownerId": "u_teacher_1794383271523",
+      "createdAt": "2026-11-11T07:47:51.523Z"
     }
   ],
   "batches": [
@@ -88,6 +97,7 @@
       "name": "Prof. Rajesh Sharma",
       "email": "sharma.tuitions@gmail.com",
       "phone": "9876543210",
+      "username": "sharma_math",
       "passwordHash": "$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6",
       "registrationJoinCode": "SHARMA-101",
       "role": "TEACHER",
@@ -101,6 +111,7 @@
       "name": "Ms. Anita Verma",
       "email": "anita.science@gmail.com",
       "phone": "9812345678",
+      "username": "anita_verma",
       "passwordHash": "$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6",
       "registrationJoinCode": "VERMA-202",
       "role": "TEACHER",
@@ -212,6 +223,33 @@
       "enrolledBatches": [],
       "isActive": true,
       "createdAt": "2026-11-11T07:11:06.066Z"
+    },
+    {
+      "id": "u_teacher_1794383271523",
+      "name": "Dr. Vikram Patel 1522",
+      "email": "vikram_1522@gmail.com",
+      "username": "vikram_1522",
+      "phone": "9899915221",
+      "passwordHash": "pbkdf2$05403f7a0d769703976512ba99218dfd$e6b2adfc3cd5703ebd7f85f0c368d87c1f814f6a20ca549a08c3e51eb8536506",
+      "registrationJoinCode": "INST-219",
+      "role": "TEACHER",
+      "tuitionId": "t_inst_1794383271523",
+      "isActive": true,
+      "createdAt": "2026-11-11T07:47:51.523Z"
+    },
+    {
+      "id": "u_student_1794383271524",
+      "name": "Rohan Gupta 1522",
+      "email": "rohan_1522@gmail.com",
+      "phone": "9188815222",
+      "username": "9188815222",
+      "passwordHash": "pbkdf2$33d5c54685f211db2356686c630eb543$e0cee991415e40f17048a3fd9990997a71eefe739ceafcdf0b8909dd189e05ca",
+      "role": "STUDENT",
+      "tuitionId": null,
+      "tenants": [],
+      "enrolledBatches": [],
+      "isActive": true,
+      "createdAt": "2026-11-11T07:47:51.524Z"
     }
   ]
 }

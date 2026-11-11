@@ -1,9 +1,13 @@
 import fs from 'fs';
 import path from 'path';
+import mongoose from 'mongoose';
+import { UserModel, TuitionModel, BatchModel, PaymentModel } from './mongooseModels.js';
 
 /**
  * Database Repository: EduMaster Multi-Tenant Persistent Storage
- * Persists to data/edumaster_db.json so data survives server restarts and redeployments.
+ * Dual-Mode Engine:
+ *  1. Cloud Database: MongoDB Atlas (when MONGODB_URI is provided)
+ *  2. Local File Persistence: data/edumaster_db.json (fallback for offline/dev)
  */
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
@@ -73,6 +77,7 @@ const SEED_USERS = [
     name: 'Prof. Rajesh Sharma',
     email: 'sharma.tuitions@gmail.com',
     phone: '9876543210',
+    username: 'sharma_math',
     passwordHash: '$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6',
     registrationJoinCode: 'SHARMA-101',
     role: 'TEACHER',
@@ -86,6 +91,7 @@ const SEED_USERS = [
     name: 'Ms. Anita Verma',
     email: 'anita.science@gmail.com',
     phone: '9812345678',
+    username: 'anita_verma',
     passwordHash: '$2a$10$wTqK/1f0KfZK0JcZvZkO3.uGk4uVq8hZ/r8r6H7hC6J.fJp3pU0a6',
     registrationJoinCode: 'VERMA-202',
     role: 'TEACHER',
@@ -123,7 +129,7 @@ const SEED_USERS = [
   }
 ];
 
-// Helper to load or initialize database
+// Helper to load or initialize database from disk
 function loadInitialData() {
   try {
     if (!fs.existsSync(DATA_DIR)) {
@@ -184,10 +190,62 @@ export const db = {
   resetTokens: new Map()
 };
 
+let mongoConnected = false;
+
+export const isMongoConnected = () => mongoConnected;
+
 /**
- * Persist current state to disk
+ * Connect to MongoDB Atlas and synchronize records
  */
-export const saveDb = () => {
+export async function connectMongo(mongoUri = process.env.MONGODB_URI) {
+  if (!mongoUri) {
+    console.log('[Database] MONGODB_URI not provided. Running in persistent file mode (data/edumaster_db.json).');
+    return false;
+  }
+
+  try {
+    console.log('[Database] Connecting to MongoDB Atlas...');
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000
+    });
+
+    mongoConnected = true;
+    console.log('✅ [Database] Successfully connected to MongoDB Atlas Cloud Database.');
+
+    // Hydrate & Seed MongoDB Atlas if collections are empty
+    const userCount = await UserModel.countDocuments();
+    if (userCount === 0) {
+      console.log('[Database] Seeding initial records to MongoDB Atlas...');
+      await TuitionModel.insertMany(db.tuitions);
+      await BatchModel.insertMany(db.batches);
+      await UserModel.insertMany(db.users);
+      console.log('[Database] Seed records successfully inserted into MongoDB Atlas.');
+    } else {
+      // Load all records from MongoDB into memory
+      const mongoTuitions = await TuitionModel.find().lean();
+      const mongoBatches = await BatchModel.find().lean();
+      const mongoUsers = await UserModel.find().lean();
+
+      if (mongoTuitions.length > 0) db.tuitions = mongoTuitions;
+      if (mongoBatches.length > 0) db.batches = mongoBatches;
+      if (mongoUsers.length > 0) db.users = mongoUsers;
+
+      console.log(`[Database] Hydrated ${db.users.length} users, ${db.tuitions.length} tuitions, and ${db.batches.length} batches from MongoDB.`);
+    }
+
+    return true;
+  } catch (err) {
+    mongoConnected = false;
+    console.warn('⚠️ [Database] Failed to connect to MongoDB Atlas. Falling back to local file storage:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Persist current state to disk and cloud MongoDB (if connected)
+ */
+export const saveDb = async () => {
+  // 1. Always flush to local file
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -202,9 +260,45 @@ export const saveDb = () => {
   } catch (err) {
     console.error('[DB] Failed to save database to disk:', err.message);
   }
+
+  // 2. If MongoDB Atlas is connected, upsert in the cloud asynchronously
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const userOps = db.users.map(u => ({
+        updateOne: {
+          filter: { id: u.id },
+          update: { $set: u },
+          upsert: true
+        }
+      }));
+      const tuitionOps = db.tuitions.map(t => ({
+        updateOne: {
+          filter: { id: t.id },
+          update: { $set: t },
+          upsert: true
+        }
+      }));
+      const batchOps = db.batches.map(b => ({
+        updateOne: {
+          filter: { id: b.id },
+          update: { $set: b },
+          upsert: true
+        }
+      }));
+
+      await Promise.all([
+        UserModel.bulkWrite(userOps),
+        TuitionModel.bulkWrite(tuitionOps),
+        BatchModel.bulkWrite(batchOps)
+      ]);
+    } catch (mongoErr) {
+      console.warn('[DB] Background MongoDB sync error:', mongoErr.message);
+    }
+  }
 };
 
-// Initial flush to ensure file exists
+// Initial file flush
 saveDb();
 
+export { UserModel, TuitionModel, BatchModel, PaymentModel };
 export default db;
