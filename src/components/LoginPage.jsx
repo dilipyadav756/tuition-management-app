@@ -23,15 +23,35 @@ import {
   Key
 } from 'lucide-react';
 
-export default function LoginPage({ onLoginSuccess }) {
+export default function LoginPage({ 
+  onLoginSuccess,
+  onClose,
+  isModal = false,
+  initialRoleTab = 'TEACHER',
+  initialTeacherView = 'LOGIN',
+  initialStudentView = 'LOGIN'
+}) {
   // Active Tab: 'TEACHER' | 'STUDENT' | 'SUPER_ADMIN'
-  const [activeRoleTab, setActiveRoleTab] = useState('TEACHER');
+  const [activeRoleTab, setActiveRoleTab] = useState(initialRoleTab || 'TEACHER');
 
   // Teacher Form Mode: 'LOGIN' | 'REGISTER'
-  const [teacherView, setTeacherView] = useState('LOGIN');
+  const [teacherView, setTeacherView] = useState(initialTeacherView || 'LOGIN');
 
   // Student Form Mode: 'LOGIN' | 'REGISTER'
-  const [studentView, setStudentView] = useState('LOGIN');
+  const [studentView, setStudentView] = useState(initialStudentView || 'LOGIN');
+
+  // Synchronize with external modal triggers
+  React.useEffect(() => {
+    if (initialRoleTab) setActiveRoleTab(initialRoleTab);
+  }, [initialRoleTab]);
+
+  React.useEffect(() => {
+    if (initialTeacherView) setTeacherView(initialTeacherView);
+  }, [initialTeacherView]);
+
+  React.useEffect(() => {
+    if (initialStudentView) setStudentView(initialStudentView);
+  }, [initialStudentView]);
 
   // Student Login Method: 'PASSWORD' | 'OTP'
   const [studentAuthMethod, setStudentAuthMethod] = useState('PASSWORD');
@@ -597,13 +617,25 @@ export default function LoginPage({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 font-sans text-slate-100 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+    <div className={isModal ? "fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200" : "min-h-screen w-full bg-slate-950 font-sans text-slate-100 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden"}>
       
       {/* BACKGROUND GLOW ACCENTS */}
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-emerald-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 relative z-10 space-y-6">
+      <div className={`max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 relative z-10 space-y-6 ${isModal ? 'animate-in zoom-in-95 duration-150 my-auto' : ''}`}>
+        
+        {/* MODAL CLOSE BUTTON */}
+        {isModal && onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors cursor-pointer z-20"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
         
         {/* BRAND HEADER */}
         <div className="text-center space-y-2">

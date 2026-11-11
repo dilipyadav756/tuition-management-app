@@ -21,6 +21,7 @@ export default function App() {
   const [showAdminPasskeyModal, setShowAdminPasskeyModal] = useState(false);
   const [showTeacherAuthModal, setShowTeacherAuthModal] = useState(false);
   const [teacherAuthMode, setTeacherAuthMode] = useState<'login' | 'register'>('login');
+  const [authModalRole, setAuthModalRole] = useState<'TEACHER' | 'STUDENT' | 'SUPER_ADMIN'>('TEACHER');
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const handleLoginSuccess = (authData) => {
@@ -130,10 +131,12 @@ export default function App() {
         <PublicPreviewBanner
           onLogin={() => {
             setTeacherAuthMode('login');
+            setAuthModalRole('TEACHER');
             setShowTeacherAuthModal(true);
           }}
           onRegister={() => {
             setTeacherAuthMode('register');
+            setAuthModalRole('TEACHER');
             setShowTeacherAuthModal(true);
           }}
           onDismiss={() => setBannerDismissed(true)}
@@ -157,6 +160,7 @@ export default function App() {
         <TeacherAuthModal
           isOpen={showTeacherAuthModal}
           initialMode={teacherAuthMode}
+          initialRole={authModalRole}
           onClose={() => setShowTeacherAuthModal(false)}
           onSuccess={(authData) => {
             setShowTeacherAuthModal(false);
@@ -222,10 +226,13 @@ export default function App() {
         onUserUpdate={handleUserUpdate} 
         onOpenTeacherAuth={(mode = 'login') => {
           setTeacherAuthMode(mode);
+          setAuthModalRole('TEACHER');
           setShowTeacherAuthModal(true);
         }}
         onOpenLogin={() => {
-          setShowLoginScreen(true);
+          setTeacherAuthMode('login');
+          setAuthModalRole('STUDENT');
+          setShowTeacherAuthModal(true);
         }}
       />
     </div>

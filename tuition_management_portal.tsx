@@ -46,7 +46,6 @@ import {
   Share2,
   Printer,
   LogOut,
-  LogIn,
   ArrowRight,
   ShieldAlert,
   Lock,
@@ -2420,23 +2419,8 @@ export default function App({
               </div>
             )}
 
-            {/* Logout / Switch Session or Sign In */}
-            {!currentUser ? (
-              <button
-                onClick={() => {
-                  if (onOpenTeacherAuth) {
-                    onOpenTeacherAuth('login');
-                  } else {
-                    setShowAuthGateModal(true);
-                  }
-                }}
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1.5 shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
-                title="Sign in to your EduMaster Account"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Sign In</span>
-              </button>
-            ) : (
+            {/* Logout Session (only visible when authenticated) */}
+            {currentUser && (
               <button
                 onClick={() => {
                   if (onLogout) {
