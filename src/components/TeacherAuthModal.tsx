@@ -48,6 +48,15 @@ export default function TeacherAuthModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Synchronize modal mode with initialMode prop when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+    }
+  }, [isOpen, initialMode]);
+
   if (!isOpen) return null;
 
   const handleResetForm = () => {

@@ -4,6 +4,7 @@ import LoginPage from './components/LoginPage';
 import SuperAdminWorkspace from './components/SuperAdminWorkspace';
 import SuperAdminLogin from './components/SuperAdminLogin';
 import TeacherAuthModal from './components/TeacherAuthModal';
+import PublicPreviewBanner from './components/PublicPreviewBanner';
 import { Key, Lock, X, Sparkles, ArrowRight, ShieldCheck, AlertCircle, GraduationCap } from 'lucide-react';
 
 export default function App() {
@@ -19,6 +20,8 @@ export default function App() {
   const [showLoginScreen, setShowLoginScreen] = useState(false);
   const [showAdminPasskeyModal, setShowAdminPasskeyModal] = useState(false);
   const [showTeacherAuthModal, setShowTeacherAuthModal] = useState(false);
+  const [teacherAuthMode, setTeacherAuthMode] = useState<'login' | 'register'>('login');
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const handleLoginSuccess = (authData) => {
     const user = authData?.user || authData;
@@ -122,6 +125,21 @@ export default function App() {
   // 3. RENDER TUITION PORTAL
   return (
     <div className="relative">
+      {/* PUBLIC PREVIEW NON-INTRUSIVE TOP BANNER */}
+      {!currentUser && !bannerDismissed && (
+        <PublicPreviewBanner
+          onLogin={() => {
+            setTeacherAuthMode('login');
+            setShowTeacherAuthModal(true);
+          }}
+          onRegister={() => {
+            setTeacherAuthMode('register');
+            setShowTeacherAuthModal(true);
+          }}
+          onDismiss={() => setBannerDismissed(true)}
+        />
+      )}
+
       {/* FLOATING ACTION PILLS */}
       <div className="fixed bottom-4 right-4 z-50 flex items-center space-x-2">
         {/* Toggle Login Page Pill */}
@@ -138,6 +156,7 @@ export default function App() {
       {showTeacherAuthModal && (
         <TeacherAuthModal
           isOpen={showTeacherAuthModal}
+          initialMode={teacherAuthMode}
           onClose={() => setShowTeacherAuthModal(false)}
           onSuccess={(authData) => {
             setShowTeacherAuthModal(false);
@@ -197,7 +216,18 @@ export default function App() {
         </div>
       )}
 
-      <TuitionPortal currentUser={currentUser} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />
+      <TuitionPortal 
+        currentUser={currentUser} 
+        onLogout={handleLogout} 
+        onUserUpdate={handleUserUpdate} 
+        onOpenTeacherAuth={(mode = 'login') => {
+          setTeacherAuthMode(mode);
+          setShowTeacherAuthModal(true);
+        }}
+        onOpenLogin={() => {
+          setShowLoginScreen(true);
+        }}
+      />
     </div>
   );
 }

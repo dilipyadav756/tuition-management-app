@@ -56,6 +56,7 @@ interface StudyMaterialsManagerProps {
   currentTeacherId: string;
   teacherBatchNames: string[];
   activeStudentBatch?: string;
+  onRequireAuth?: (action: string, callback: () => void) => void;
 }
 
 const formatFileSize = (bytes: number): string => {
@@ -120,7 +121,8 @@ export default function StudyMaterialsManager({
   currentRole,
   currentTeacherId,
   teacherBatchNames,
-  activeStudentBatch
+  activeStudentBatch,
+  onRequireAuth
 }: StudyMaterialsManagerProps) {
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -130,6 +132,27 @@ export default function StudyMaterialsManager({
   // Modal states
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [viewingNote, setViewingNote] = useState<Note | null>(null);
+
+  const triggerUpload = (tab: 'both' | 'text' | 'file') => {
+    const proceed = () => {
+      setShowUploadModal(true);
+      setActiveInputTab(tab);
+      setFileError('');
+    };
+    if (onRequireAuth) {
+      onRequireAuth('Upload Study Notes', proceed);
+    } else {
+      proceed();
+    }
+  };
+
+  const triggerDelete = (noteId: string) => {
+    if (onRequireAuth) {
+      onRequireAuth('Upload Study Notes', () => onDeleteNote(noteId));
+    } else {
+      onDeleteNote(noteId);
+    }
+  };
 
   // Form states for new note
   const [noteTitle, setNoteTitle] = useState('');
@@ -350,11 +373,7 @@ export default function StudyMaterialsManager({
           {currentRole === 'teacher' && (
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => {
-                  setShowUploadModal(true);
-                  setActiveInputTab('file');
-                  setFileError('');
-                }}
+                onClick={() => triggerUpload('file')}
                 className="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm shadow-indigo-600/20 transition-all cursor-pointer"
                 title="Select and attach PDF, DOCX, PNG, JPG, or XLSX files from your computer"
               >
@@ -362,11 +381,7 @@ export default function StudyMaterialsManager({
                 <span>Upload File from Computer</span>
               </button>
               <button
-                onClick={() => {
-                  setShowUploadModal(true);
-                  setActiveInputTab('text');
-                  setFileError('');
-                }}
+                onClick={() => triggerUpload('text')}
                 className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer border border-slate-200"
                 title="Type or paste text notes directly"
               >
@@ -517,7 +532,7 @@ export default function StudyMaterialsManager({
                   {/* Teacher Delete Button */}
                   {currentRole === 'teacher' && (
                     <button
-                      onClick={() => onDeleteNote(note.id)}
+                      onClick={() => triggerDelete(note.id)}
                       className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                       title="Delete study note"
                     >

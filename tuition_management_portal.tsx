@@ -3,6 +3,7 @@ import StudyMaterialsManager, { FileAttachment } from './src/components/StudyMat
 import MentorShowcase from './src/components/MentorShowcase';
 import DemoTuitionCenters from './src/components/DemoTuitionCenters';
 import ExportModal from './src/components/ExportModal';
+import AuthGateModal from './src/components/AuthGateModal';
 import { ExportDataset } from './src/utils/exportManager';
 import { 
   Users, 
@@ -45,6 +46,7 @@ import {
   Share2,
   Printer,
   LogOut,
+  LogIn,
   ArrowRight,
   ShieldAlert,
   Lock,
@@ -478,11 +480,15 @@ const PIE_COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 export default function App({ 
   currentUser, 
   onLogout,
-  onUserUpdate
+  onUserUpdate,
+  onOpenTeacherAuth,
+  onOpenLogin
 }: { 
   currentUser?: any; 
   onLogout?: () => void;
   onUserUpdate?: (user: any) => void;
+  onOpenTeacherAuth?: (mode?: 'login' | 'register') => void;
+  onOpenLogin?: () => void;
 } = {}) {
   // --- PERSISTED STATE ---
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
@@ -651,9 +657,9 @@ export default function App({
         if (u.role === 'TEACHER' || u.role === 'teacher') return u.id;
       }
       const savedTeacherId = localStorage.getItem('tm_current_teacher_id');
-      if (savedTeacherId) return savedTeacherId;
+      if (savedTeacherId && (savedTeacherId === 't1' || savedTeacherId === 't2')) return savedTeacherId;
     } catch {}
-    return '';
+    return 't1';
   });
 
   const [currentStudentId, setCurrentStudentId] = useState<string>(() => {
@@ -751,6 +757,40 @@ export default function App({
     }
   }, [currentUser]);
 
+  // --- AUTHENTICATION GATE & INTENDED ACTION PRESERVATION ---
+  const [showAuthGateModal, setShowAuthGateModal] = useState<boolean>(false);
+  const [pendingIntendedAction, setPendingIntendedAction] = useState<{
+    name: string;
+    callback: () => void;
+    requiredRole?: 'teacher' | 'student';
+  } | null>(null);
+
+  const requireAuth = (actionName: string, actionCallback: () => void, requiredRole?: 'teacher' | 'student'): boolean => {
+    if (!currentUser) {
+      setPendingIntendedAction({
+        name: actionName,
+        callback: actionCallback,
+        requiredRole
+      });
+      setShowAuthGateModal(true);
+      return false;
+    }
+    actionCallback();
+    return true;
+  };
+
+  // Resume user's intended action automatically after successful authentication
+  useEffect(() => {
+    if (currentUser && pendingIntendedAction) {
+      const action = pendingIntendedAction;
+      setPendingIntendedAction(null);
+      setShowAuthGateModal(false);
+      setTimeout(() => {
+        action.callback();
+      }, 300);
+    }
+  }, [currentUser]);
+
   // Verify secret 4-digit PIN for teacher profile access (with rate limiting)
   const handleVerifyTeacherPin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -810,6 +850,11 @@ export default function App({
   // Change Security PIN handler
   const handleChangePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) {
+      setShowChangePinModal(false);
+      requireAuth('Manage Teachers', () => setShowChangePinModal(true), 'teacher');
+      return;
+    }
     const currentPinStored = activeTeacher.pin || '1234';
     if (changePinCurrent.trim() !== currentPinStored) {
       setChangePinError('Current PIN does not match.');
@@ -968,6 +1013,10 @@ export default function App({
   // Teacher Payment Settings Handler
   const handleSaveTeacherUpi = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (!currentUser) {
+      requireAuth('Manage Teachers', () => {});
+      return;
+    }
     const trimmed = teacherUpiInput.trim().toLowerCase();
 
     // Strict UPI ID format validation (username@bankhandle)
@@ -1013,6 +1062,11 @@ export default function App({
 
   // --- ENTITY RESOLUTION & STRICT RBAC DATA ISOLATION ---
   const activeTeacher = useMemo<Teacher>(() => {
+    // PUBLIC PREVIEW: Strictly isolate public visitors to demo instructors only
+    if (!currentUser) {
+      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
+      return DEFAULT_TEACHERS.find(t => t.id === demoId) || DEFAULT_TEACHERS[0];
+    }
     if (currentTeacherId) {
       const found = teachers.find(t => t.id === currentTeacherId);
       if (found) return found;
@@ -1079,6 +1133,11 @@ export default function App({
   };
 
   const activeStudent = useMemo<Student>(() => {
+    // PUBLIC PREVIEW: Provide demo student preview safely
+    if (!currentUser) {
+      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
+      return DEFAULT_STUDENTS.find(s => s.teacherId === demoId) || DEFAULT_STUDENTS[0];
+    }
     // If student is logged in via multi-tenant session, prioritize matching both id & tuitionId
     if (currentUser && (currentUser.role === 'STUDENT' || currentUser.role === 'student')) {
       const matchInDb = students.find(s => s.id === currentUser.id && s.teacherId === (currentUser.tuitionId || currentTeacherId));
@@ -1115,15 +1174,23 @@ export default function App({
     };
   }, [students, currentStudentId, currentTeacherId, currentUser]);
 
-  // Batches strictly belonging to the active teacher
+  // Batches strictly belonging to the active teacher (isolated to demo in preview)
   const teacherBatchesList = useMemo(() => {
+    if (!currentUser) {
+      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
+      return DEFAULT_BATCHES.filter(b => b.teacherId === demoId);
+    }
     return batches.filter(b => b.teacherId === currentTeacherId);
-  }, [batches, currentTeacherId]);
+  }, [batches, currentTeacherId, currentUser]);
 
   // Pending join requests strictly for the active teacher
   const teacherPendingRequests = useMemo(() => {
+    if (!currentUser) {
+      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
+      return DEFAULT_JOIN_REQUESTS.filter(r => r.teacherId === demoId && r.status === 'Pending');
+    }
     return joinRequests.filter(r => r.teacherId === currentTeacherId && r.status === 'Pending');
-  }, [joinRequests, currentTeacherId]);
+  }, [joinRequests, currentTeacherId, currentUser]);
 
   // Detected batch for student code input
   const detectedBatch = useMemo(() => {
@@ -1349,10 +1416,14 @@ export default function App({
     }
   };
 
-  // Students strictly enrolled under the active teacher
+  // Students strictly enrolled under the active teacher (isolated to demo in preview)
   const teacherStudents = useMemo(() => {
+    if (!currentUser) {
+      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
+      return DEFAULT_STUDENTS.filter(s => s.teacherId === demoId);
+    }
     return students.filter(s => s.teacherId === currentTeacherId);
-  }, [students, currentTeacherId]);
+  }, [students, currentTeacherId, currentUser]);
 
   const teacherBatchNames = useMemo(() => {
     const fromBatches = teacherBatchesList.map(b => b.name);
@@ -1404,6 +1475,10 @@ export default function App({
 
   // STRICT RBAC: Content Filtering (Notes & Tests never leak across teachers or student batches)
   const visibleNotes = useMemo(() => {
+    if (!currentUser) {
+      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
+      return DEFAULT_NOTES.filter(n => n.teacherId === demoId);
+    }
     if (currentRole === 'teacher') {
       return notes.filter(n => n.teacherId === currentTeacherId);
     }
@@ -1412,9 +1487,13 @@ export default function App({
       n.teacherId === activeStudent.teacherId && 
       (n.batch === activeStudent.batch || n.batch === 'ALL' || n.batch === 'All Batches')
     );
-  }, [notes, currentRole, currentTeacherId, activeStudent]);
+  }, [notes, currentRole, currentTeacherId, activeStudent, currentUser]);
 
   const visibleTests = useMemo(() => {
+    if (!currentUser) {
+      const demoId = (currentTeacherId === 't2') ? 't2' : 't1';
+      return DEFAULT_TESTS.filter(t => t.teacherId === demoId);
+    }
     if (currentRole === 'teacher') {
       return tests.filter(t => t.teacherId === currentTeacherId);
     }
@@ -1423,7 +1502,7 @@ export default function App({
       t.teacherId === activeStudent.teacherId && 
       (t.batch === activeStudent.batch || t.batch === 'ALL' || t.batch === 'All Batches')
     );
-  }, [tests, currentRole, currentTeacherId, activeStudent]);
+  }, [tests, currentRole, currentTeacherId, activeStudent, currentUser]);
 
   // Strictly isolate scores for export to current tuition center
   const centerScores = useMemo(() => {
@@ -1605,6 +1684,10 @@ export default function App({
 
   // Teacher Approves Student Join Request
   const handleApproveJoinRequest = (req: BatchJoinRequest) => {
+    if (!currentUser) {
+      requireAuth('Review Batch Requests', () => handleApproveJoinRequest(req), 'teacher');
+      return;
+    }
     const batch = batches.find(b => b.id === req.batchId);
     const newStudentId = `s_${Date.now()}`;
     const newStudent: Student = {
@@ -1630,6 +1713,10 @@ export default function App({
 
   // Teacher Rejects Student Join Request
   const handleRejectJoinRequest = (reqId: string) => {
+    if (!currentUser) {
+      requireAuth('Review Batch Requests', () => handleRejectJoinRequest(reqId), 'teacher');
+      return;
+    }
     setJoinRequests(joinRequests.map(r => r.id === reqId ? { ...r, status: 'Rejected' } : r));
     showToast('Student join request declined.');
   };
@@ -1637,6 +1724,11 @@ export default function App({
   // Teacher Creates a New Batch with unique 6-digit join code
   const handleCreateBatchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!currentUser) {
+      setShowCreateBatchModal(false);
+      requireAuth('Create Batch', () => setShowCreateBatchModal(true), 'teacher');
+      return;
+    }
     const formData = new FormData(e.currentTarget);
     const name = (formData.get('name') as string).trim();
     const subject = (formData.get('subject') as string).trim();
@@ -1743,6 +1835,11 @@ export default function App({
   // Add / Edit Student Submit
   const handleSaveStudentSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!currentUser) {
+      setShowAddStudentModal(false);
+      requireAuth(editingStudent ? 'Edit Student' : 'Add Student', () => setShowAddStudentModal(true), 'teacher');
+      return;
+    }
     const formData = new FormData(e.currentTarget);
     const name = (formData.get('name') as string).trim();
     const rollNo = (formData.get('rollNo') as string).trim();
@@ -1785,6 +1882,10 @@ export default function App({
   };
 
   const handleDeleteStudent = (studentId: string, studentName: string) => {
+    if (!currentUser) {
+      requireAuth('Delete Student', () => handleDeleteStudent(studentId, studentName), 'teacher');
+      return;
+    }
     if (confirm(`Are you sure you want to remove ${studentName}?`)) {
       setStudents(students.filter(s => s.id !== studentId));
       showToast(`Removed student ${studentName}`);
@@ -1794,6 +1895,11 @@ export default function App({
   // Add Note Submit
   const handleAddNoteSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!currentUser) {
+      setShowAddNoteModal(false);
+      requireAuth('Upload Study Notes', () => setShowAddNoteModal(true), 'teacher');
+      return;
+    }
     const formData = new FormData(e.currentTarget);
     const newNote: Note = {
       id: `n_${Date.now()}`,
@@ -1811,6 +1917,10 @@ export default function App({
   };
 
   const handleDeleteNote = (noteId: string) => {
+    if (!currentUser) {
+      requireAuth('Upload Study Notes', () => handleDeleteNote(noteId), 'teacher');
+      return;
+    }
     if (confirm('Delete this study material note?')) {
       setNotes(notes.filter(n => n.id !== noteId));
       showToast('Note deleted.');
@@ -1834,12 +1944,20 @@ export default function App({
 
   // Update Student Fee Status
   const handleUpdateFee = (studentId: string, status: 'Paid' | 'Pending' | 'Overdue') => {
+    if (!currentUser) {
+      requireAuth('Manage Fees', () => handleUpdateFee(studentId, status), 'teacher');
+      return;
+    }
     setStudents(students.map(s => s.id === studentId ? { ...s, feeStatus: status } : s));
     showToast(`Fee status updated to "${status}"`);
   };
 
   // Toggle Attendance
   const handleToggleAttendance = (studentId: string) => {
+    if (!currentUser) {
+      requireAuth('Mark Attendance', () => handleToggleAttendance(studentId), 'teacher');
+      return;
+    }
     const currentDayRecord: Record<string, 'Present' | 'Absent'> = { ...(attendanceRecords[attendanceDate] || {}) };
     const currentStatus: 'Present' | 'Absent' = currentDayRecord[studentId] || 'Present';
     const nextStatus: 'Present' | 'Absent' = currentStatus === 'Present' ? 'Absent' : 'Present';
@@ -1853,6 +1971,10 @@ export default function App({
   };
 
   const handleMarkAllAttendance = (status: 'Present' | 'Absent') => {
+    if (!currentUser) {
+      requireAuth('Mark Attendance', () => handleMarkAllAttendance(status), 'teacher');
+      return;
+    }
     const currentDayRecord: Record<string, 'Present' | 'Absent'> = { ...(attendanceRecords[attendanceDate] || {}) };
     teacherStudents.forEach(s => {
       currentDayRecord[s.id] = status;
@@ -1970,6 +2092,11 @@ export default function App({
 
   const handleCreateTestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) {
+      setShowCreateTestModal(false);
+      requireAuth('Create Tests and Quizzes', () => setShowCreateTestModal(true), 'teacher');
+      return;
+    }
     if (!newTestTitle.trim()) {
       alert('Please provide a test title.');
       return;
@@ -2010,6 +2137,10 @@ export default function App({
   };
 
   const handleDeleteTest = (testId: string) => {
+    if (!currentUser) {
+      requireAuth('Create Tests and Quizzes', () => handleDeleteTest(testId), 'teacher');
+      return;
+    }
     if (confirm('Are you sure you want to delete this test?')) {
       setTests(tests.filter(t => t.id !== testId));
       showToast('Test deleted.');
@@ -2113,6 +2244,12 @@ export default function App({
             <div>
               <h1 className="font-bold text-lg leading-tight flex items-center gap-2">
                 EduMaster <span className="text-xs bg-indigo-500/30 text-indigo-300 font-semibold px-2 py-0.5 rounded-full border border-indigo-400/30">Tuition Hub</span>
+                {!currentUser && (
+                  <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                    <span>DEMO PREVIEW</span>
+                  </span>
+                )}
               </h1>
               <p className="text-xs text-slate-400 hidden sm:block">Role-Based Tuition & Batch Management Platform</p>
             </div>
@@ -2143,8 +2280,8 @@ export default function App({
 
                 {/* Batch Join Requests Alert Pill */}
                 <button
-                  onClick={() => setShowBatchRequestsModal(true)}
-                  className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 border transition-all ${
+                  onClick={() => requireAuth('Review Batch Requests', () => setShowBatchRequestsModal(true), 'teacher')}
+                  className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 border transition-all cursor-pointer ${
                     teacherPendingRequests.length > 0 
                       ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 hover:bg-amber-500/30 animate-pulse'
                       : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
@@ -2171,39 +2308,44 @@ export default function App({
                 </button>
 
                 {/* Teacher Security & Management Tools (PIN, Backup, Lock) */}
-                {isTeacherUnlocked && currentTeacherId && (
+                {(isTeacherUnlocked || !currentUser) && currentTeacherId && (
                   <>
                     <button
-                      onClick={() => setShowChangePinModal(true)}
-                      className="bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all border border-slate-700"
+                      onClick={() => requireAuth('Manage Teachers', () => setShowChangePinModal(true), 'teacher')}
+                      className="bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all border border-slate-700 cursor-pointer"
                       title="Change 4-Digit Security PIN"
                     >
                       <Key className="w-3.5 h-3.5" />
                       <span className="hidden xl:inline">PIN</span>
                     </button>
                     <button
-                      onClick={() => setShowExportModal(true)}
+                      onClick={() => requireAuth('Export Reports', () => setShowExportModal(true), 'teacher')}
                       className="bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all border border-slate-700 cursor-pointer"
-                      title="Export Tuition Reports & Backups (JSON, Excel, CSV)"
+                      title="Export Tuition Reports (Excel .xlsx)"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span className="hidden xl:inline">Export</span>
                     </button>
-                    <button
-                      onClick={handleLockTeacherProfile}
-                      className="bg-amber-600/80 hover:bg-amber-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all border border-amber-500/40"
-                      title="Lock workspace immediately (requires PIN to re-enter)"
-                    >
-                      <Lock className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Lock</span>
-                    </button>
+                    {currentUser && (
+                      <button
+                        onClick={handleLockTeacherProfile}
+                        className="bg-amber-600/80 hover:bg-amber-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all border border-amber-500/40 cursor-pointer"
+                        title="Lock workspace immediately (requires PIN to re-enter)"
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Lock</span>
+                      </button>
+                    )}
                   </>
                 )}
 
                 {/* Register New Teacher Account */}
                 <button
-                  onClick={() => setShowRegisterTeacherModal(true)}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all"
+                  onClick={() => requireAuth('Manage Teachers', () => {
+                    if (onOpenTeacherAuth) onOpenTeacherAuth('register');
+                    else setShowRegisterTeacherModal(true);
+                  }, 'teacher')}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-all cursor-pointer"
                   title="Register a new Tuition Center / Teacher Account"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -2223,8 +2365,8 @@ export default function App({
 
                 {/* Student Join Batch with Code Action */}
                 <button
-                  onClick={() => setShowJoinBatchModal(true)}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center space-x-1.5 shadow-sm transition-all ring-1 ring-emerald-400/30"
+                  onClick={() => requireAuth('Join Batch', () => setShowJoinBatchModal(true), 'student')}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center space-x-1.5 shadow-sm transition-all ring-1 ring-emerald-400/30 cursor-pointer"
                   title="Enter 6-digit code to join a batch"
                 >
                   <Key className="w-3.5 h-3.5" />
@@ -2278,21 +2420,38 @@ export default function App({
               </div>
             )}
 
-            {/* Logout / Switch Session */}
-            <button
-              onClick={() => {
-                if (onLogout) {
-                  onLogout();
-                } else {
-                  localStorage.removeItem('tm_auth_user');
-                  window.location.reload();
-                }
-              }}
-              className="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-              title="Log Out of Portal"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            {/* Logout / Switch Session or Sign In */}
+            {!currentUser ? (
+              <button
+                onClick={() => {
+                  if (onOpenTeacherAuth) {
+                    onOpenTeacherAuth('login');
+                  } else {
+                    setShowAuthGateModal(true);
+                  }
+                }}
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1.5 shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+                title="Sign in to your EduMaster Account"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  if (onLogout) {
+                    onLogout();
+                  } else {
+                    localStorage.removeItem('tm_auth_user');
+                    window.location.reload();
+                  }
+                }}
+                className="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                title="Log Out of Portal"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -2300,7 +2459,7 @@ export default function App({
       {/* ================================================================ */}
       {/* PIN UNLOCK GATE — Full-screen overlay when teacher not unlocked  */}
       {/* ================================================================ */}
-      {currentRole === 'teacher' && !isTeacherUnlocked && currentTeacherId && (() => {
+      {currentUser && currentRole === 'teacher' && !isTeacherUnlocked && currentTeacherId && (() => {
         const pinTeacher = teachers.find(t => t.id === currentTeacherId) || activeTeacher;
         return (
           <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[60] flex items-center justify-center p-4">
@@ -2693,6 +2852,12 @@ export default function App({
                     <span className="bg-indigo-500/20 text-indigo-300 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-indigo-400/30">
                       {currentRole === 'teacher' ? 'Instructor Dashboard' : 'Student Learning Desk'}
                     </span>
+                    {!currentUser && (
+                      <span className="bg-amber-400 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-slate-900" />
+                        <span>DEMO PREVIEW</span>
+                      </span>
+                    )}
                     {currentRole === 'teacher' && teacherPendingRequests.length > 0 && (
                       <span className="bg-amber-500 text-slate-900 text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 animate-pulse">
                         <Bell className="w-3 h-3" /> {teacherPendingRequests.length} Pending Join Request(s)
@@ -2707,20 +2872,25 @@ export default function App({
                       ? `Overseeing ${totalStudentsCount} enrolled students across ${teacherBatchesList.length} batch(es). Share your unique 6-digit join codes with new students.` 
                       : `Enrolled in ${activeStudent.batch}. Access your study materials, attempt quizzes, or join a new batch using an instructor code.`}
                   </p>
+                  {!currentUser && (
+                    <p className="text-amber-300 text-xs mt-1.5 font-medium">
+                      💡 Currently previewing sample tuition centre features. Create an account or sign in to activate full management access.
+                    </p>
+                  )}
                 </div>
                 
                 {currentRole === 'teacher' ? (
                   <div className="flex flex-wrap gap-2">
                     <button 
-                      onClick={() => setShowBatchRequestsModal(true)}
-                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center space-x-2 shadow-sm transition-all"
+                      onClick={() => requireAuth('Review Batch Requests', () => setShowBatchRequestsModal(true), 'teacher')}
+                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center space-x-2 shadow-sm transition-all cursor-pointer"
                     >
                       <UserPlus className="w-4 h-4" />
                       <span>Review Requests ({teacherPendingRequests.length})</span>
                     </button>
                     <button 
-                      onClick={() => setShowCreateBatchModal(true)}
-                      className="bg-slate-800 hover:bg-slate-700 text-indigo-200 border border-slate-700 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center space-x-2 transition-all"
+                      onClick={() => requireAuth('Create Batch', () => setShowCreateBatchModal(true), 'teacher')}
+                      className="bg-slate-800 hover:bg-slate-700 text-indigo-200 border border-slate-700 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center space-x-2 transition-all cursor-pointer"
                     >
                       <Key className="w-4 h-4" />
                       <span>Create Batch</span>
@@ -2729,8 +2899,8 @@ export default function App({
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     <button 
-                      onClick={() => setShowJoinBatchModal(true)}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center space-x-2 shadow-sm transition-all ring-2 ring-emerald-400/20"
+                      onClick={() => requireAuth('Join Batch', () => setShowJoinBatchModal(true), 'student')}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center space-x-2 shadow-sm transition-all ring-2 ring-emerald-400/20 cursor-pointer"
                     >
                       <Key className="w-4 h-4" />
                       <span>Join Batch with Code</span>
@@ -2753,7 +2923,7 @@ export default function App({
                       </div>
                     </div>
                     <button
-                      onClick={() => setShowCreateBatchModal(true)}
+                      onClick={() => requireAuth('Create Batch', () => setShowCreateBatchModal(true), 'teacher')}
                       className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1.5 transition-colors self-start sm:self-auto cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -2768,8 +2938,13 @@ export default function App({
                         <div key={b.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between space-y-3 hover:border-indigo-300 transition-all">
                           <div>
                             <div className="flex justify-between items-start">
-                              <span className="text-[11px] font-bold text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                                {b.subject}
+                              <span className="text-[11px] font-bold text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 flex items-center gap-1">
+                                <span>{b.subject}</span>
+                                {!currentUser && (
+                                  <span className="text-[9px] font-mono font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded border border-amber-300">
+                                    DEMO
+                                  </span>
+                                )}
                               </span>
                               <span className="text-xs font-semibold text-slate-700">₹{b.monthlyFee}/mo</span>
                             </div>
@@ -2796,7 +2971,7 @@ export default function App({
                                   <span>Copy</span>
                                 </button>
                                 <button
-                                  onClick={() => handleRegenerateBatchCode(b.id)}
+                                  onClick={() => requireAuth('Create Batch', () => handleRegenerateBatchCode(b.id), 'teacher')}
                                   className="text-xs bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-300 px-2 py-1.5 rounded-lg font-bold flex items-center space-x-1 shadow-sm transition-all cursor-pointer"
                                   title="Regenerate unique batch code"
                                 >
@@ -3046,16 +3221,16 @@ export default function App({
                     </div>
                     <div className="pt-3 mt-2 border-t border-slate-100 flex items-center gap-2">
                       <button 
-                        onClick={() => setShowQRModal(activeStudent)}
-                        className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold flex items-center justify-center space-x-1 shadow-sm"
+                        onClick={() => requireAuth('Manage Fees', () => setShowQRModal(activeStudent), 'student')}
+                        className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold flex items-center justify-center space-x-1 shadow-sm cursor-pointer"
                       >
                         <QrCode className="w-3.5 h-3.5" />
                         <span>Pay via QR</span>
                       </button>
                       {activeStudent.feeStatus === 'Paid' ? (
                         <button 
-                          onClick={() => printFeeReceipt(activeStudent)}
-                          className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold flex items-center justify-center space-x-1 shadow-sm"
+                          onClick={() => requireAuth('Fee Receipt', () => printFeeReceipt(activeStudent), 'student')}
+                          className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold flex items-center justify-center space-x-1 shadow-sm cursor-pointer"
                         >
                           <Printer className="w-3.5 h-3.5" />
                           <span>Receipt</span>
@@ -3411,8 +3586,8 @@ export default function App({
                                   </span>
                                 ) : (
                                   <button 
-                                    onClick={() => handleStartTest(t)}
-                                    className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-colors"
+                                    onClick={() => requireAuth('Create Tests and Quizzes', () => handleStartTest(t), 'student')}
+                                    className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm transition-colors cursor-pointer"
                                   >
                                     <Play className="w-3 h-3" />
                                     <span>Attempt</span>
@@ -3435,8 +3610,8 @@ export default function App({
 
                   {currentRole === 'teacher' && (
                     <button
-                      onClick={() => setShowCreateTestModal(true)}
-                      className="mt-4 w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl flex items-center justify-center space-x-1.5 transition-colors"
+                      onClick={() => requireAuth('Create Tests and Quizzes', () => setShowCreateTestModal(true), 'teacher')}
+                      className="mt-4 w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Create New Quiz</span>
@@ -3483,15 +3658,15 @@ export default function App({
                 </div>
                 <div className="flex items-center space-x-2">
                   <button 
-                    onClick={() => setShowBatchRequestsModal(true)}
-                    className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center space-x-1.5 transition-all"
+                    onClick={() => requireAuth('Review Batch Requests', () => setShowBatchRequestsModal(true), 'teacher')}
+                    className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center space-x-1.5 transition-all cursor-pointer"
                   >
                     <UserPlus className="w-4 h-4 text-amber-600" />
                     <span>Join Requests ({teacherPendingRequests.length})</span>
                   </button>
                   <button 
-                    onClick={() => { setEditingStudent(null); setShowAddStudentModal(true); }}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2 shadow-sm transition-all"
+                    onClick={() => requireAuth('Add Student', () => { setEditingStudent(null); setShowAddStudentModal(true); }, 'teacher')}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2 shadow-sm transition-all cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add Student</span>
@@ -3566,11 +3741,27 @@ export default function App({
                           </td>
                           <td className="p-3.5 text-slate-600 font-medium">{s.batch}</td>
                           <td className="p-3.5 text-slate-500 text-xs">
-                            <div className="text-slate-800 font-medium">{s.phone}</div>
+                            <div className="text-slate-800 font-medium">
+                              {!currentUser ? (
+                                <button
+                                  type="button"
+                                  onClick={() => requireAuth('View Private Student Records', () => alert(`Student Phone: ${s.phone}`))}
+                                  className="text-slate-600 hover:text-indigo-600 flex items-center gap-1 cursor-pointer"
+                                  title="Protected private record. Click to authenticate."
+                                >
+                                  <span>{s.phone.slice(0, 6)}•••••</span>
+                                  <Lock className="w-2.5 h-2.5 text-slate-400" />
+                                </button>
+                              ) : (
+                                s.phone
+                              )}
+                            </div>
                             {s.parentPhone && (
                               <div className="text-emerald-700 text-[11px] font-semibold flex items-center gap-1 mt-0.5">
                                 <MessageCircle className="w-3 h-3 text-emerald-600" />
-                                <span>Parent: {s.parentPhone}</span>
+                                <span>
+                                  Parent: {!currentUser ? `${s.parentPhone.slice(0, 6)}•••••` : s.parentPhone}
+                                </span>
                               </div>
                             )}
                           </td>
@@ -3602,22 +3793,22 @@ export default function App({
                           </td>
                           <td className="p-3.5 text-right space-x-1">
                             <button
-                              onClick={() => sendWhatsAppFeeReminder(s)}
-                              className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors inline-flex"
+                              onClick={() => requireAuth('Send WhatsApp Reminder', () => sendWhatsAppFeeReminder(s), 'teacher')}
+                              className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors inline-flex cursor-pointer"
                               title="Send WhatsApp Fee Reminder to Parent"
                             >
                               <MessageCircle className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => { setEditingStudent(s); setShowAddStudentModal(true); }}
-                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors inline-flex"
+                              onClick={() => requireAuth('Edit Student', () => { setEditingStudent(s); setShowAddStudentModal(true); }, 'teacher')}
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors inline-flex cursor-pointer"
                               title="Edit Student"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleDeleteStudent(s.id, s.name)}
-                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors inline-flex"
+                              onClick={() => requireAuth('Delete Student', () => handleDeleteStudent(s.id, s.name), 'teacher')}
+                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors inline-flex cursor-pointer"
                               title="Remove Student"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -3675,14 +3866,14 @@ export default function App({
 
                     <div className="flex items-center space-x-2">
                       <button
-                        onClick={() => handleMarkAllAttendance('Present')}
-                        className="px-3 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold transition-all"
+                        onClick={() => requireAuth('Mark Attendance', () => handleMarkAllAttendance('Present'), 'teacher')}
+                        className="px-3 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold transition-all cursor-pointer"
                       >
                         Mark All Present
                       </button>
                       <button
-                        onClick={() => handleMarkAllAttendance('Absent')}
-                        className="px-3 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-lg text-xs font-bold transition-all"
+                        onClick={() => requireAuth('Mark Attendance', () => handleMarkAllAttendance('Absent'), 'teacher')}
+                        className="px-3 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-lg text-xs font-bold transition-all cursor-pointer"
                       >
                         Mark All Absent
                       </button>
@@ -3715,8 +3906,8 @@ export default function App({
                       <div className="flex items-center space-x-2">
                         {!isPresent && (
                           <button
-                            onClick={() => sendWhatsAppAbsenceAlert(s)}
-                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all"
+                            onClick={() => requireAuth('Mark Attendance', () => sendWhatsAppAbsenceAlert(s), 'teacher')}
+                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all cursor-pointer"
                             title="Send WhatsApp Absence Alert to Parent"
                           >
                             <MessageCircle className="w-3.5 h-3.5 text-rose-600" />
@@ -3724,8 +3915,8 @@ export default function App({
                           </button>
                         )}
                         <button
-                          onClick={() => handleToggleAttendance(s.id)}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shadow-sm ${
+                          onClick={() => requireAuth('Mark Attendance', () => handleToggleAttendance(s.id), 'teacher')}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shadow-sm cursor-pointer ${
                             isPresent 
                               ? 'bg-emerald-600 hover:bg-emerald-500 text-white ring-2 ring-emerald-300' 
                               : 'bg-rose-600 hover:bg-rose-500 text-white ring-2 ring-rose-300'
@@ -3805,16 +3996,16 @@ export default function App({
                         </td>
                         <td className="p-3.5 text-right space-x-1.5">
                           <button 
-                            onClick={() => setShowQRModal(s)}
-                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-lg shadow-sm inline-flex items-center gap-1"
+                            onClick={() => requireAuth('Manage Fees', () => setShowQRModal(s), 'teacher')}
+                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-lg shadow-sm inline-flex items-center gap-1 cursor-pointer"
                             title="Generate UPI QR Payment Code"
                           >
                             <QrCode className="w-3.5 h-3.5" />
                             <span>QR Pay</span>
                           </button>
                           <button 
-                            onClick={() => printFeeReceipt(s)}
-                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-lg shadow-sm inline-flex items-center gap-1"
+                            onClick={() => requireAuth('Fee Receipt', () => printFeeReceipt(s), 'teacher')}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-lg shadow-sm inline-flex items-center gap-1 cursor-pointer"
                             title="Print / Download Official Fee Receipt"
                           >
                             <Printer className="w-3.5 h-3.5" />
@@ -3822,8 +4013,8 @@ export default function App({
                           </button>
                           {s.feeStatus !== 'Paid' && (
                             <button 
-                              onClick={() => sendWhatsAppFeeReminder(s)}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-sm inline-flex items-center gap-1"
+                              onClick={() => requireAuth('Send WhatsApp Reminder', () => sendWhatsAppFeeReminder(s), 'teacher')}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-sm inline-flex items-center gap-1 cursor-pointer"
                               title="Send WhatsApp Fee Reminder to Parent"
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
@@ -3831,20 +4022,20 @@ export default function App({
                             </button>
                           )}
                           <button 
-                            onClick={() => handleUpdateFee(s.id, 'Paid')}
-                            className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 text-xs font-semibold rounded-lg shadow-sm"
+                            onClick={() => requireAuth('Manage Fees', () => handleUpdateFee(s.id, 'Paid'), 'teacher')}
+                            className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 text-xs font-semibold rounded-lg shadow-sm cursor-pointer"
                           >
                             Paid
                           </button>
                           <button 
-                            onClick={() => handleUpdateFee(s.id, 'Pending')}
-                            className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 text-xs font-semibold rounded-lg shadow-sm"
+                            onClick={() => requireAuth('Manage Fees', () => handleUpdateFee(s.id, 'Pending'), 'teacher')}
+                            className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 text-xs font-semibold rounded-lg shadow-sm cursor-pointer"
                           >
                             Pending
                           </button>
                           <button 
-                            onClick={() => handleUpdateFee(s.id, 'Overdue')}
-                            className="px-2.5 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300 text-xs font-semibold rounded-lg shadow-sm"
+                            onClick={() => requireAuth('Manage Fees', () => handleUpdateFee(s.id, 'Overdue'), 'teacher')}
+                            className="px-2.5 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300 text-xs font-semibold rounded-lg shadow-sm cursor-pointer"
                           >
                             Overdue
                           </button>
@@ -3980,7 +4171,7 @@ export default function App({
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
-                    onClick={() => setShowQRModal(activeStudent)}
+                    onClick={() => requireAuth('Manage Fees', () => setShowQRModal(activeStudent), 'student')}
                     className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center space-x-2 shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
                   >
                     <QrCode className="w-4 h-4" />
@@ -3988,7 +4179,7 @@ export default function App({
                   </button>
                   {activeStudent.feeStatus === 'Paid' ? (
                     <button
-                      onClick={() => printFeeReceipt(activeStudent)}
+                      onClick={() => requireAuth('Fee Receipt', () => printFeeReceipt(activeStudent), 'student')}
                       className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer"
                     >
                       <Printer className="w-4 h-4" />
@@ -4033,14 +4224,21 @@ export default function App({
             <StudyMaterialsManager
               notes={visibleNotes}
               onAddNote={(newNote) => {
-                setNotes([newNote, ...notes]);
-                showToast(`Study material published: "${newNote.title}"`);
+                requireAuth('Upload Study Notes', () => {
+                  setNotes([newNote, ...notes]);
+                  showToast(`Study material published: "${newNote.title}"`);
+                }, 'teacher');
               }}
               onDeleteNote={(noteId) => {
-                if (confirm('Delete this study material note?')) {
-                  setNotes(notes.filter(n => n.id !== noteId));
-                  showToast('Note deleted.');
-                }
+                requireAuth('Upload Study Notes', () => {
+                  if (confirm('Delete this study material note?')) {
+                    setNotes(notes.filter(n => n.id !== noteId));
+                    showToast('Note deleted.');
+                  }
+                }, 'teacher');
+              }}
+              onRequireAuth={(action, callback) => {
+                requireAuth(action, callback, 'teacher');
               }}
               currentRole={currentRole}
               currentTeacherId={currentTeacherId}
@@ -4169,8 +4367,8 @@ export default function App({
 
                     {currentRole === 'teacher' && (
                       <button 
-                        onClick={() => setShowCreateTestModal(true)}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2 shadow-sm transition-all"
+                        onClick={() => requireAuth('Create Tests and Quizzes', () => setShowCreateTestModal(true), 'teacher')}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center space-x-2 shadow-sm transition-all cursor-pointer"
                       >
                         <Plus className="w-4 h-4" />
                         <span>Create New Quiz</span>
@@ -4218,16 +4416,16 @@ export default function App({
                                     {studentScore.score}/{studentScore.totalMarks} ({studentScore.percentage}%)
                                   </span>
                                   <button
-                                    onClick={() => handleStartTest(t)}
-                                    className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-2.5 py-1 rounded-lg"
+                                    onClick={() => requireAuth('Create Tests and Quizzes', () => handleStartTest(t), 'student')}
+                                    className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-2.5 py-1 rounded-lg cursor-pointer"
                                   >
                                     Retake
                                   </button>
                                 </div>
                               ) : (
                                 <button
-                                  onClick={() => handleStartTest(t)}
-                                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs flex items-center space-x-1 shadow-sm transition-colors"
+                                  onClick={() => requireAuth('Create Tests and Quizzes', () => handleStartTest(t), 'student')}
+                                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs flex items-center space-x-1 shadow-sm transition-colors cursor-pointer"
                                 >
                                   <Play className="w-3.5 h-3.5" />
                                   <span>Attempt Test</span>
@@ -4239,8 +4437,8 @@ export default function App({
                                   {submissionsCount} student attempt(s)
                                 </span>
                                 <button
-                                  onClick={() => handleDeleteTest(t.id)}
-                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                  onClick={() => requireAuth('Create Tests and Quizzes', () => handleDeleteTest(t.id), 'teacher')}
+                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                                   title="Delete Test"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -5797,6 +5995,37 @@ export default function App({
         dataset={exportDataset}
         currentUser={currentUser}
         onToast={showToast}
+      />
+
+      {/* AUTHENTICATION GATE MODAL FOR PUBLIC PREVIEW VISITORS */}
+      <AuthGateModal
+        isOpen={showAuthGateModal}
+        onClose={() => setShowAuthGateModal(false)}
+        onLogin={() => {
+          setShowAuthGateModal(false);
+          if (onOpenTeacherAuth) {
+            onOpenTeacherAuth('login');
+          } else {
+            showToast('Please sign in to continue.');
+          }
+        }}
+        onRegister={() => {
+          setShowAuthGateModal(false);
+          if (onOpenTeacherAuth) {
+            onOpenTeacherAuth('register');
+          } else {
+            showToast('Please create an account to continue.');
+          }
+        }}
+        onStudentLogin={() => {
+          setShowAuthGateModal(false);
+          if (onOpenLogin) {
+            onOpenLogin();
+          } else {
+            showToast('Please sign in via Student Portal.');
+          }
+        }}
+        intendedAction={pendingIntendedAction?.name}
       />
 
     </div>
