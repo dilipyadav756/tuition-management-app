@@ -59,7 +59,7 @@ export default function LoginPage({ onLoginSuccess }) {
   const [regEmail, setRegEmail] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [regPin, setRegPin] = useState('1234');
+  const [regPin, setRegPin] = useState('');
 
   // Form Fields - Student Login
   const [studentIdentifier, setStudentIdentifier] = useState('9111122222');
@@ -199,6 +199,12 @@ export default function LoginPage({ onLoginSuccess }) {
     if (regPassword.length < 6) {
       setLoading(false);
       setErrorMessage('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (regPin.trim().length !== 4) {
+      setLoading(false);
+      setErrorMessage('Workspace 4-Digit PIN must be exactly 4 digits.');
       return;
     }
 

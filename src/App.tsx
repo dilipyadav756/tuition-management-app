@@ -25,7 +25,7 @@ export default function App() {
     setCurrentUser(user);
     try {
       localStorage.setItem('tm_auth_user', JSON.stringify(user));
-    } catch {}
+    } catch { }
     setShowLoginScreen(false);
   };
 
@@ -33,7 +33,7 @@ export default function App() {
     setCurrentUser(updatedUser);
     try {
       localStorage.setItem('tm_auth_user', JSON.stringify(updatedUser));
-    } catch {}
+    } catch { }
   };
 
   const handleLogout = () => {
@@ -47,7 +47,7 @@ export default function App() {
           sessionStorage.removeItem(k);
         }
       });
-    } catch {}
+    } catch { }
     setShowLoginScreen(true);
   };
 
@@ -67,7 +67,7 @@ export default function App() {
         const match = parsed.find(t => t.id === targetId);
         if (match) teacherName = match.name;
       }
-    } catch {}
+    } catch { }
 
     if (!targetId) {
       alert('No active tuition center found to inspect.');
@@ -88,16 +88,16 @@ export default function App() {
       localStorage.setItem('tm_current_teacher_id', targetId);
       // Auto unlock for inspected portal session
       sessionStorage.setItem(`tm_unlocked_${targetId}`, 'true');
-    } catch {}
+    } catch { }
   };
 
   // 1. RENDER SUPER-ADMIN WORKSPACE IF AUTHENTICATED AS SUPER-ADMIN
   if (currentUser?.role === 'SUPER_ADMIN') {
     return (
-      <SuperAdminWorkspace 
-        currentUser={currentUser} 
-        onLogout={handleLogout} 
-        onSwitchToPortal={handleSwitchToPortal} 
+      <SuperAdminWorkspace
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onSwitchToPortal={handleSwitchToPortal}
       />
     );
   }
@@ -150,7 +150,7 @@ export default function App() {
       {showAdminPasskeyModal && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-slate-900 border border-purple-800/80 rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 animate-in fade-in zoom-in-95 relative my-8">
-            <button 
+            <button
               onClick={() => setShowAdminPasskeyModal(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800/60 transition-colors"
               title="Close"
@@ -188,7 +188,7 @@ export default function App() {
               setCurrentUser(adminUser);
               try {
                 localStorage.setItem('tm_auth_user', JSON.stringify(adminUser));
-              } catch {}
+              } catch { }
             }}
             className="bg-slate-950 hover:bg-slate-900 text-amber-300 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all"
           >

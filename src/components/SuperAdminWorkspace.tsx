@@ -1467,7 +1467,8 @@ export default function SuperAdminWorkspace({
                     name="pin" 
                     type="password" 
                     maxLength={4}
-                    defaultValue="1234" 
+                    defaultValue="" 
+                    placeholder="e.g. 1234"
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-center font-mono font-bold"
                   />
                 </div>
