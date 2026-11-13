@@ -293,56 +293,96 @@ function flushToFile() {
 }
 
 /**
- * Connect to MongoDB with robust fallback cascade:
- *  Priority 1: Environment MONGODB_URI (e.g. MongoDB Atlas Cloud)
- *  Priority 2: Local MongoDB Daemon (mongodb://127.0.0.1:27017/edumaster)
- *  Priority 3: Persistent File Storage (data/edumaster_db.json)
+ * Connect to MongoDB with environment-aware fallback cascade:
+ *
+ *  PRODUCTION (NODE_ENV === 'production'):
+ *    MONGODB_URI is REQUIRED. No localhost fallback — if Atlas is unreachable
+ *    the server reports an error instead of silently falling back to nothing.
+ *
+ *  DEVELOPMENT / LOCAL:
+ *    Priority 1: MONGODB_URI (if set)
+ *    Priority 2: Local MongoDB Daemon (mongodb://127.0.0.1:27017/edumaster)
+ *    Priority 3: Persistent File Storage (data/edumaster_db.json)
  */
 export async function connectMongo(preferredUri = process.env.MONGODB_URI) {
   setupMongooseListeners();
 
+  const isProduction = process.env.NODE_ENV === 'production';
   const targets = [];
 
+  // --- Diagnostics (credentials are never logged) ---
   if (preferredUri) {
+    const safeUri = preferredUri.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:****@');
+    console.log(`[Database] MONGODB_URI detected: ${safeUri}`);
+
     const isCloud = preferredUri.includes('mongodb+srv://') || preferredUri.includes('.mongodb.net');
     targets.push({
       uri: preferredUri,
       label: isCloud ? 'MongoDB Atlas (Cloud Cluster)' : 'Configured MongoDB URI'
     });
-  }
-
-  // Add local MongoDB fallback if not already prioritized
-  const localUri = 'mongodb://127.0.0.1:27017/edumaster';
-  if (!targets.some(t => t.uri.includes('127.0.0.1:27017') || t.uri.includes('localhost:27017'))) {
-    targets.push({
-      uri: localUri,
-      label: 'Local MongoDB Daemon (127.0.0.1:27017)'
-    });
-  }
-
-  for (const target of targets) {
-    try {
-      console.log(`[Database] Connecting to ${target.label}...`);
-      await mongoose.connect(target.uri, {
-        serverSelectionTimeoutMS: 4000,
-        connectTimeoutMS: 4000
-      });
-
-      mongoConnected = true;
-      activeDatabaseSource = target.label;
-      console.log(`✅ [Database] Successfully connected to ${target.label}.`);
-
-      // Seed & Hydrate
-      await syncMongoCollections();
-      return true;
-    } catch (err) {
-      console.warn(`⚠️ [Database] Connection failed for ${target.label}: ${err.message}`);
+  } else {
+    console.warn('[Database] MONGODB_URI environment variable is NOT set.');
+    if (isProduction) {
+      console.error('❌ [Database] FATAL: MONGODB_URI must be set in production. Set it in Render → Environment → Environment Variables.');
     }
   }
 
-  // Safe fallback to persistent JSON storage
+  // Only add localhost fallback in development — never in production
+  if (!isProduction) {
+    const localUri = 'mongodb://127.0.0.1:27017/edumaster';
+    if (!targets.some(t => t.uri.includes('127.0.0.1:27017') || t.uri.includes('localhost:27017'))) {
+      targets.push({
+        uri: localUri,
+        label: 'Local MongoDB Daemon (127.0.0.1:27017)'
+      });
+    }
+  }
+
+  // --- Connection attempts with retry ---
+  for (const target of targets) {
+    const maxRetries = isProduction ? 3 : 1;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 1) {
+          const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
+          console.log(`[Database] Retry ${attempt}/${maxRetries} for ${target.label} in ${backoffMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        }
+
+        console.log(`[Database] Connecting to ${target.label}... (attempt ${attempt}/${maxRetries})`);
+        await mongoose.connect(target.uri, {
+          serverSelectionTimeoutMS: isProduction ? 10000 : 4000,
+          connectTimeoutMS: isProduction ? 10000 : 4000,
+          socketTimeoutMS: 45000,
+          heartbeatFrequencyMS: 10000,
+          retryWrites: true,
+          retryReads: true
+        });
+
+        mongoConnected = true;
+        activeDatabaseSource = target.label;
+        console.log(`✅ [Database] Successfully connected to ${target.label}.`);
+
+        // Seed & Hydrate
+        await syncMongoCollections();
+        return true;
+      } catch (err) {
+        console.warn(`⚠️ [Database] Connection attempt ${attempt}/${maxRetries} failed for ${target.label}: ${err.message}`);
+        // If this was the last retry for this target, move on
+        if (attempt === maxRetries) {
+          console.error(`❌ [Database] All ${maxRetries} attempt(s) exhausted for ${target.label}.`);
+        }
+      }
+    }
+  }
+
+  // All targets exhausted — fallback to file storage
   mongoConnected = false;
   activeDatabaseSource = 'Persistent Local File Storage (data/edumaster_db.json)';
+  if (isProduction) {
+    console.error(`🔴 [Database] PRODUCTION WARNING: MongoDB is NOT connected. Running on file fallback — data will NOT persist across deploys!`);
+    console.error(`🔴 [Database] Fix: Set a valid MONGODB_URI in Render → Environment → Environment Variables.`);
+  }
   console.log(`ℹ️ [Database] Running in zero-downtime offline fallback: ${activeDatabaseSource}`);
   return false;
 }

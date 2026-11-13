@@ -36,7 +36,7 @@ You have two recommended deployment models:
    - `NODE_ENV` = `production`
    - `PORT` = `10000` (Render will automatically bind to this)
    - `JWT_SECRET` = Click **Generate** or provide a 32+ character random string
-   - `MONGODB_URI` = `mongodb+srv://dilipyadavrxl756_db_user:MtJOYo8ImbvxkU6q@cluster0.ahmen28.mongodb.net/edumaster?retryWrites=true&w=majority`
+   - `MONGODB_URI` = *(Copy the exact connection string from Atlas → Connect → Connect your application → Node.js driver)*
    - `CLIENT_URL` = `https://*.vercel.app` (or add your specific Vercel URL later)
 6. Click **Deploy Web Service**.
 7. Once deployed, copy your Render URL: e.g. `https://edumaster-backend.onrender.com`.
@@ -74,7 +74,7 @@ If you want a single URL that serves both the client UI and the backend API:
    - `NODE_ENV` = `production`
    - `PORT` = `10000`
    - `JWT_SECRET` = `(generate or paste secret)`
-   - `MONGODB_URI` = `mongodb+srv://dilipyadavrxl756_db_user:MtJOYo8ImbvxkU6q@cluster0.ahmen28.mongodb.net/edumaster?retryWrites=true&w=majority`
+   - `MONGODB_URI` = *(Copy the exact connection string from Atlas → Connect → Connect your application → Node.js driver)*
 4. Click **Deploy**.
    - Render will build the Vite frontend into `dist/`.
    - Express serves both `/api/*` and the static React SPA from `dist/` on the same URL.
@@ -89,7 +89,7 @@ If you want a single URL that serves both the client UI and the backend API:
 4. Add Environment Variables:
    - `NODE_ENV` = `production`
    - `JWT_SECRET` = `edumaster_production_secure_jwt_secret_key_2026_xyz987`
-   - `MONGODB_URI` = `mongodb+srv://dilipyadavrxl756_db_user:MtJOYo8ImbvxkU6q@cluster0.ahmen28.mongodb.net/edumaster?retryWrites=true&w=majority`
+   - `MONGODB_URI` = *(Copy the exact connection string from Atlas → Connect → Connect your application → Node.js driver)*
 5. Click **Deploy**.
    - Vercel builds the React frontend to `dist/`.
    - [`vercel.json`](./vercel.json) routes all `/api/*` requests to the serverless handler [`api/index.js`](./api/index.js).
@@ -105,3 +105,4 @@ Before deploying, ensure your MongoDB Atlas cluster allows incoming connections 
 4. Click **Allow Access from Anywhere** (`0.0.0.0/0`).
 5. Click **Confirm**.
 *(Since cloud platforms like Vercel and Render use dynamic outbound IP addresses, `0.0.0.0/0` is required for them to connect to your Atlas cluster).*
+

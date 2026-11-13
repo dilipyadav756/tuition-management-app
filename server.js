@@ -60,12 +60,14 @@ app.use((req, res, next) => {
 
 // Healthcheck Endpoint
 app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
+  const mongoReady = isMongoConnected();
+  res.status(mongoReady ? 200 : 503).json({
+    status: mongoReady ? 'healthy' : 'degraded',
     platform: 'EduMaster Tuition Management Platform',
     version: '2.0.0',
     database: getActiveDatabaseSource(),
-    isMongoConnected: isMongoConnected(),
+    isMongoConnected: mongoReady,
+    mongodbUriConfigured: !!process.env.MONGODB_URI,
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     environment: NODE_ENV
@@ -75,6 +77,16 @@ app.get('/api/health', (req, res) => {
 // Dynamic Import & Route Mount
 async function startServer() {
   try {
+    // 0. Startup Environment Diagnostics
+    console.log('[Startup] Environment:', NODE_ENV.toUpperCase());
+    console.log('[Startup] MONGODB_URI configured:', !!process.env.MONGODB_URI);
+    if (process.env.MONGODB_URI) {
+      const safeUri = process.env.MONGODB_URI.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:****@');
+      console.log('[Startup] Target:', safeUri);
+    } else if (NODE_ENV === 'production') {
+      console.error('[Startup] ⚠️ WARNING: MONGODB_URI is NOT set. Set it in Render Dashboard → Environment → Environment Variables.');
+    }
+
     // 1. Connect to MongoDB Atlas (if MONGODB_URI is provided)
     await connectMongo();
 

@@ -12,6 +12,8 @@ services:
         value: 10000
       - key: JWT_SECRET
         generateValue: true
+      # IMPORTANT: You MUST set MONGODB_URI manually in Render Dashboard → Environment
+      # Copy the connection string from MongoDB Atlas → Connect → Connect your application
       - key: MONGODB_URI
         sync: false
       - key: CLIENT_URL
