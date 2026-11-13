@@ -75,14 +75,21 @@ function attachRoutes(router) {
    * @desc    Enroll authenticated student into a batch via verified batch code
    * @access  Protected (Students)
    */
-  router.post('/join-batch', joinBatch);
+  router.post('/join-batch', authenticateToken, joinBatch);
 
   /**
    * @route   POST /api/auth/regenerate-batch-code
    * @desc    Regenerate unique 6-digit batch code for an existing batch
    * @access  Protected (Teachers only)
    */
-  router.post('/regenerate-batch-code', regenerateBatchCode);
+  router.post('/regenerate-batch-code', authenticateToken, regenerateBatchCode);
+
+  /**
+   * @route   POST /api/auth/regenerate-teacher-join-code
+   * @desc    Regenerate teacher's registration join code
+   * @access  Protected (Teachers only)
+   */
+  router.post('/regenerate-teacher-join-code', authenticateToken, regenerateTeacherJoinCode);
 
   /**
    * @route   POST /api/auth/register-teacher

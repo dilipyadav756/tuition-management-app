@@ -216,8 +216,9 @@ export const verifyBatchCode = async (req, res) => {
  */
 export const joinBatch = async (req, res) => {
   try {
-    const { studentId, batchCode } = req.body;
-    const targetStudentId = studentId || req.user?.userId;
+    const studentId = req.body.studentId;
+    const batchCode = req.body.batchCode || req.body.joinCode || req.body.code;
+    const targetStudentId = studentId || req.user?.userId || req.user?.id;
 
     if (!batchCode) {
       return res.status(400).json({

@@ -9,10 +9,7 @@
       "ownerId": "u_teacher_1",
       "upiId": "sharmaclasses@upi",
       "isActive": true,
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "_id": "6af420766bb793c388e4eeda",
-      "__v": 0,
-      "updatedAt": "2026-11-11T12:51:58.646Z"
+      "createdAt": "2026-01-01T00:00:00.000Z"
     },
     {
       "id": "t_inst_2",
@@ -23,10 +20,7 @@
       "ownerId": "u_teacher_2",
       "upiId": "anita.verma@okaxis",
       "isActive": true,
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "_id": "6af420766bb793c388e4eedb",
-      "__v": 0,
-      "updatedAt": "2026-11-11T12:51:58.646Z"
+      "createdAt": "2026-01-01T00:00:00.000Z"
     },
     {
       "_id": "6af420766bb793c388e4eedc",
@@ -114,6 +108,16 @@
       "phone": "9988776655",
       "ownerId": "u_teacher_1794401805029",
       "createdAt": "2026-11-11T12:56:45.029Z"
+    },
+    {
+      "id": "t_inst_1794571965855",
+      "name": "Apex Science Hub",
+      "code": "APEX-843",
+      "joinCode": "APEX-843",
+      "phone": "9870011223",
+      "ownerId": "u_teacher_1794571965855",
+      "createdAt": "2026-11-13T12:12:45.856Z",
+      "upiId": "apex.classes@oksbi"
     }
   ],
   "batches": [
@@ -125,11 +129,7 @@
       "subject": "Mathematics & Physics",
       "joinCode": "849201",
       "monthlyFee": 2500,
-      "schedule": "Mon, Wed, Fri (5:00 PM - 6:30 PM)",
-      "_id": "6af420766bb793c388e4eee0",
-      "createdAt": "2026-11-11T07:59:50.440Z",
-      "__v": 0,
-      "updatedAt": "2026-11-11T10:20:24.806Z"
+      "schedule": "Mon, Wed, Fri (5:00 PM - 6:30 PM)"
     },
     {
       "id": "b2",
@@ -139,11 +139,7 @@
       "subject": "Advanced Mathematics",
       "joinCode": "713904",
       "monthlyFee": 3000,
-      "schedule": "Tue, Thu, Sat (6:00 PM - 7:30 PM)",
-      "_id": "6af420766bb793c388e4eee1",
-      "createdAt": "2026-11-11T07:59:50.440Z",
-      "__v": 0,
-      "updatedAt": "2026-11-11T10:20:24.806Z"
+      "schedule": "Tue, Thu, Sat (6:00 PM - 7:30 PM)"
     },
     {
       "id": "b3",
@@ -153,11 +149,18 @@
       "subject": "Cell Biology & Genetics",
       "joinCode": "526318",
       "monthlyFee": 2800,
-      "schedule": "Mon, Thu, Sat (4:00 PM - 5:30 PM)",
-      "_id": "6af420766bb793c388e4eee2",
-      "createdAt": "2026-11-11T07:59:50.440Z",
-      "__v": 0,
-      "updatedAt": "2026-11-11T10:20:24.806Z"
+      "schedule": "Mon, Thu, Sat (4:00 PM - 5:30 PM)"
+    },
+    {
+      "id": "b_1794571975484",
+      "tuitionId": "t_inst_1794571965855",
+      "teacherId": "u_teacher_1794571965855",
+      "name": "Class 11 - Physics Honors",
+      "subject": "Physics",
+      "joinCode": "619645",
+      "monthlyFee": 3500,
+      "schedule": "Tue, Thu, Sat 6:00 PM",
+      "createdAt": "2026-11-13T12:12:55.484Z"
     }
   ],
   "users": [
@@ -447,6 +450,59 @@
       "tuitionId": "t_inst_1794401805029",
       "isActive": true,
       "createdAt": "2026-11-11T12:56:45.029Z"
+    },
+    {
+      "id": "u_teacher_1794571965855",
+      "name": "Prof. Apex",
+      "email": "apex_teacher@apex.edu",
+      "username": "apex_teacher",
+      "phone": "9870011223",
+      "passwordHash": "pbkdf2$0b29e0ca73728e20f098e8f05371aefc$9ec26017b9bad2f7e4fc4636a2ed8afee3be3e6f3dffa3e0bea7016894e58e20",
+      "registrationJoinCode": "APEX-843",
+      "role": "TEACHER",
+      "tuitionId": "t_inst_1794571965855",
+      "isActive": true,
+      "createdAt": "2026-11-13T12:12:45.856Z",
+      "upiId": "apex.classes@oksbi"
+    },
+    {
+      "id": "u_student_1794572272314",
+      "name": "Rohan Verma",
+      "email": "rohan.verma@gmail.com",
+      "phone": "9811122233",
+      "username": "9811122233",
+      "passwordHash": "pbkdf2$7d1fcfba2a784fff95fcc82067af3c33$34dd7e2c2b0e4928454d9c57684e11475d9fc034fd97448639b2e7050b1bbef2",
+      "role": "STUDENT",
+      "tuitionId": "t_inst_1794571965855",
+      "tenants": [
+        {
+          "tuitionId": "t_inst_1794571965855",
+          "tuitionName": "Apex Science Hub",
+          "batch": "Class 11 - Physics Honors",
+          "rollNo": "S-137",
+          "teacherId": "u_teacher_1794571965855",
+          "teacherName": "Prof. Apex"
+        }
+      ],
+      "enrolledBatches": [
+        {
+          "batchId": "b_1794571975484",
+          "batchName": "Class 11 - Physics Honors",
+          "subject": "Physics",
+          "monthlyFee": 3500,
+          "schedule": "Tue, Thu, Sat 6:00 PM",
+          "joinCode": "619645",
+          "teacherId": "u_teacher_1794571965855",
+          "teacherName": "Prof. Apex",
+          "tuitionId": "t_inst_1794571965855",
+          "tuitionName": "Apex Science Hub",
+          "rollNo": "S-137",
+          "enrolledAt": "2026-11-13T12:20:26.261Z"
+        }
+      ],
+      "isActive": true,
+      "createdAt": "2026-11-13T12:17:52.314Z",
+      "feeStatus": "PAID"
     }
   ]
 }
