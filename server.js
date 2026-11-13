@@ -30,7 +30,12 @@ app.use(cors({
     if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
       return callback(null, true);
     }
-    return callback(null, true); // Permissive for initial cloud deployment
+    // Allow any Vercel or Render deployment domain
+    if (/^https:\/\/[a-zA-Z0-9_.-]+\.vercel\.app$/.test(origin) || 
+        /^https:\/\/[a-zA-Z0-9_.-]+\.onrender\.com$/.test(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, true); // Permissive for cloud deployment
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -125,34 +130,41 @@ async function startServer() {
       });
     });
 
-    // Start Listening
-    const server = app.listen(PORT, '0.0.0.0', () => {
-      console.log('====================================================');
-      console.log(`🚀 EduMaster Server running in ${NODE_ENV.toUpperCase()} mode`);
-      console.log(`🌐 Public Port: ${PORT}`);
-      console.log(`🩺 Healthcheck: http://localhost:${PORT}/api/health`);
-      console.log('====================================================');
-    });
-
-    // Graceful Shutdown
-    const handleShutdown = async (signal) => {
-      console.log(`\n[Server] Received ${signal}. Shutting down gracefully...`);
-      try {
-        if (mongoose.connection.readyState === 1) {
-          await mongoose.connection.close();
-          console.log('[Database] MongoDB connection closed.');
-        }
-      } catch (dbCloseErr) {
-        console.warn('[Database] Error closing MongoDB:', dbCloseErr.message);
-      }
-      server.close(() => {
-        console.log('[Server] Closed all pending connections.');
-        process.exit(0);
+    // Start Listening (only when not running inside a Serverless function like Vercel)
+    let server = null;
+    if (!process.env.VERCEL) {
+      server = app.listen(PORT, '0.0.0.0', () => {
+        console.log('====================================================');
+        console.log(`🚀 EduMaster Server running in ${NODE_ENV.toUpperCase()} mode`);
+        console.log(`🌐 Public Port: ${PORT}`);
+        console.log(`🩺 Healthcheck: http://localhost:${PORT}/api/health`);
+        console.log('====================================================');
       });
-    };
 
-    process.on('SIGTERM', () => handleShutdown('SIGTERM'));
-    process.on('SIGINT', () => handleShutdown('SIGINT'));
+      // Graceful Shutdown
+      const handleShutdown = async (signal) => {
+        console.log(`\n[Server] Received ${signal}. Shutting down gracefully...`);
+        try {
+          if (mongoose.connection.readyState === 1) {
+            await mongoose.connection.close();
+            console.log('[Database] MongoDB connection closed.');
+          }
+        } catch (dbCloseErr) {
+          console.warn('[Database] Error closing MongoDB:', dbCloseErr.message);
+        }
+        if (server) {
+          server.close(() => {
+            console.log('[Server] Closed all pending connections.');
+            process.exit(0);
+          });
+        } else {
+          process.exit(0);
+        }
+      };
+
+      process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+      process.on('SIGINT', () => handleShutdown('SIGINT'));
+    }
 
   } catch (error) {
     console.error('Fatal error starting server:', error);
